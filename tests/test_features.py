@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from _helpers import explain, sleep_cmd, wait_until
+from _helpers import explain, http_server_cmd, sleep_cmd, wait_until
 
 from backend import detect, diagnose, gitinfo, proxy, recipes, shellenv
 
@@ -38,7 +38,7 @@ def test_proxy_routes_by_host(host, expected):
 def test_named_url_serves_running_app(client, isolated_registry, tmp_path):
     (tmp_path / "index.html").write_text("<h1>hello from the app</h1>")
     port = _free_port()
-    cmd = f'"{sys.executable}" -m http.server {port} --bind 127.0.0.1'
+    cmd = http_server_cmd(tmp_path, port)
     isolated_registry.add({"name": "Site", "path": str(tmp_path), "command": cmd, "port": port})
     host = {"Host": "site.localhost:7777"}
 

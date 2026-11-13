@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import main, monitor, registry as registry_module
-from _helpers import explain, sleep_cmd, wait_until
+from _helpers import explain, http_server_cmd, sleep_cmd, wait_until
 
 
 def test_browse_endpoint(client, tmp_path):
@@ -106,7 +106,7 @@ def test_port_ready_only_when_port_answers(client, demo_dir):
     srv.bind(("127.0.0.1", 0))
     port = srv.getsockname()[1]
     srv.close()
-    cmd = f'"{sys.executable}" -m http.server {port} --bind 127.0.0.1'
+    cmd = http_server_cmd(demo_dir, port)
     app_id = client.post("/api/apps", json={"name": "ReadyApp", "path": str(demo_dir), "command": cmd, "port": port}).json()["id"]
     assert client.post(f"/api/apps/{app_id}/start").status_code == 200
     try:
@@ -165,8 +165,14 @@ def test_port_conflict_and_kill(client, demo_dir):
         f"import socket, time\n"
         f"s = socket.socket()\n"
         f"s.bind(('127.0.0.1', {conflict_port}))\n"
-        f"s.listen(1)\n"
-        f"time.sleep(30)\n"
+        f"s.listen(16)\n"
+        f"s.settimeout(30)\n"
+        f"end = time.time() + 30\n"
+        f"while time.time() < end:\n"
+        f"    try:\n"
+        f"        c, _ = s.accept(); c.close()\n"
+        f"    except OSError:\n"
+        f"        break\n"
     )
     sock.close()
     proc = subprocess.Popen([sys.executable, "-c", script])

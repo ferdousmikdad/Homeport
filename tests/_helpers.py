@@ -65,3 +65,23 @@ def explain(client, app_id: str) -> str:
         return f"\nstate={keep}\nprobes={probes}\nprocs={procs}\nlogs:\n{logs[-3000:]}"
     except Exception as exc:  # pragma: no cover - diagnostics only
         return f"(couldn't explain: {exc})"
+
+
+_SERVE = """import sys, functools, http.server, socketserver
+port = int(sys.argv[1])
+handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=".")
+# socketserver.TCPServer, not http.server.HTTPServer: HTTPServer looks up the
+# host name before it listens, which can hang for 30s+ on CI machines.
+socketserver.TCPServer.allow_reuse_address = True
+with socketserver.ThreadingTCPServer(("127.0.0.1", port), handler) as srv:
+    srv.serve_forever()
+"""
+
+
+def http_server_cmd(folder, port: int) -> str:
+    """A command that serves ``folder`` on 127.0.0.1:``port`` straight away (any OS)."""
+    import os
+    import sys
+    with open(os.path.join(str(folder), "_serve.py"), "w", encoding="utf-8") as fh:
+        fh.write(_SERVE)
+    return f'"{sys.executable}" _serve.py {port}'
