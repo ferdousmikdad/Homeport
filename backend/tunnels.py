@@ -64,8 +64,10 @@ SHARE_HOST_SUFFIX = ".share.localhost"
 
 
 class _Share:
-    def __init__(self, app_id: str, port: int, password: Optional[str], expires_at: Optional[float]):
+    def __init__(self, app_id: str, port: int, password: Optional[str], expires_at: Optional[float],
+                 feedback: bool = False):
         self.app_id = app_id
+        self.feedback = bool(feedback)  # visitors can leave feedback on the pages
         self.port = port
         self.status = "starting"  # starting | live | error
         self.url: Optional[str] = None
@@ -90,6 +92,7 @@ class _Share:
             "started_at": self.started_at,
             "expires_at": self.expires_at,
             "protected": self.pw_hash is not None,
+            "feedback": self.feedback,
         }
 
 
@@ -172,7 +175,8 @@ class TunnelManager:
             return app_id in self._shares
 
     def start(self, app_id: str, port: int, *, manager_port: int = 7777,
-              password: Optional[str] = None, expires_minutes: Optional[float] = None) -> dict:
+              password: Optional[str] = None, expires_minutes: Optional[float] = None,
+              feedback: bool = False) -> dict:
         """Open a Quick Tunnel to the app.
 
         Every share goes through Homeport's proxy (``<id>.share.localhost``):
@@ -191,7 +195,7 @@ class TunnelManager:
             expires_at = time.time() + minutes * 60
         self.stop(app_id)
 
-        share = _Share(app_id, int(port), password, expires_at)
+        share = _Share(app_id, int(port), password, expires_at, feedback)
         origin = f"http://localhost:{int(manager_port)}"
         host = f"{app_id}{SHARE_HOST_SUFFIX}"
         cmd = [exe, "tunnel", "--no-autoupdate", "--http-host-header", host, "--url", origin]
@@ -201,6 +205,15 @@ class TunnelManager:
             self._shares[app_id] = share
         threading.Thread(target=self._read, args=(share,), daemon=True).start()
         return share.public()
+
+    def set_feedback(self, app_id: str, on: bool) -> Optional[dict]:
+        """Turn visitor feedback on/off for a live share (same link)."""
+        with self._lock:
+            share = self._shares.get(app_id)
+            if share is None:
+                return None
+            share.feedback = bool(on)
+            return share.public()
 
     def stop(self, app_id: str) -> bool:
         with self._lock:
@@ -237,6 +250,7 @@ class TunnelManager:
             if share is None:
                 return None
             return {"port": share.port, "url": share.url, "protected": share.pw_hash is not None,
+                    "feedback": share.feedback,
                     "salt": share.salt, "pw_hash": share.pw_hash, "secret": share.secret}
 
     def auth_info(self, app_id: str) -> Optional[tuple]:

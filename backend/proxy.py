@@ -18,10 +18,12 @@ import asyncio
 import hashlib
 import hmac
 import html
+import json
+import os
 import re
 import time
 from typing import Callable, Optional
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 import httpx
 
@@ -40,6 +42,12 @@ _HOP = {
 }
 _COOKIE = "homeport_share"
 _LOGIN_PATH = "/__homeport/login"
+# Visitor feedback (feedback.py): the page widget and its endpoints live under this
+# path on shared and named hosts; the app never sees these requests.
+_FB = "/__homeport/fb"
+_REVIEW_COOKIE = "homeport_review"
+_WIDGET = os.path.join(os.path.dirname(os.path.abspath(__file__)), "feedback_widget.js")
+_HTML_DOC = re.compile(rb"<(?:!doctype html|html|body)[\s>]", re.I)
 
 
 _MAX_REWRITE = 8 * 1024 * 1024
@@ -162,11 +170,14 @@ class HostProxyMiddleware:
             return await self.app(scope, receive, send)
 
         kind, app_id = route
+        share_feedback = False
         if kind == "share":
             granted = await self._authorize_share(scope, receive, send, app_id, headers)
             if granted is None:
                 return
             port, public_origin = granted
+            info = tunnels.share_info(app_id) if tunnels is not None else None
+            share_feedback = bool(info and info.get("feedback"))
         else:
             if app_exists is None or not app_exists(app_id):
                 if scope["type"] == "http":
@@ -183,6 +194,16 @@ class HostProxyMiddleware:
                 return
             public_origin = "http://" + host
 
+        # feedback widget: visitors on a share with feedback on; the owner in review mode
+        if scope["type"] == "http" and (scope.get("path") or "").startswith(_FB):
+            await self._feedback_route(scope, receive, send, kind, app_id, headers, share_feedback)
+            return
+        inject = None
+        if kind == "share" and share_feedback:
+            inject = "visitor"
+        elif kind == "app" and _cookies(headers).get(_REVIEW_COOKIE) == "1":
+            inject = "review"
+
         entry = get_entry(app_id) if get_entry else None
         if (entry and scope["type"] == "http" and scope.get("path") == "/"
                 and entry.lower() not in ("index.html", "index.htm", "index.php")):
@@ -196,7 +217,7 @@ class HostProxyMiddleware:
         if scope["type"] == "websocket":
             await self._proxy_ws(scope, receive, send, int(port))
         else:
-            await self._proxy_http(scope, receive, send, int(port), public_origin)
+            await self._proxy_http(scope, receive, send, int(port), public_origin, inject)
 
     # ------------------------------------------------------------------
     # password-protected shares
@@ -217,8 +238,7 @@ class HostProxyMiddleware:
             return port, public_origin
         secret = info["secret"]
         expected = _token(secret, app_id)
-        cookies = headers.get(b"cookie", b"").decode("latin-1")
-        jar = dict(part.strip().split("=", 1) for part in cookies.split(";") if "=" in part)
+        jar = _cookies(headers)
         if hmac.compare_digest(jar.get(_COOKIE, ""), expected):
             return port, public_origin
         if scope["type"] != "http":
@@ -251,7 +271,8 @@ class HostProxyMiddleware:
     # ------------------------------------------------------------------
     # HTTP
     # ------------------------------------------------------------------
-    async def _proxy_http(self, scope, receive, send, port: int, public_origin: str) -> None:
+    async def _proxy_http(self, scope, receive, send, port: int, public_origin: str,
+                          inject: Optional[str] = None) -> None:
         path = scope.get("raw_path") or scope["path"].encode()
         qs = scope.get("query_string") or b""
         url = f"http://localhost:{port}{path.decode('latin-1')}" + (f"?{qs.decode('latin-1')}" if qs else "")
@@ -307,6 +328,8 @@ class HostProxyMiddleware:
                         break
                 if len(body) <= _MAX_REWRITE:
                     body = _apply(body, swaps)
+                    if inject and resp.status_code < 400 and "text/html" in resp.headers.get("content-type", "").lower():
+                        body = _inject_widget(body, inject)
                     out = [(k, v) for k, v in out if k.lower() != b"content-length"]
                     out.append((b"content-length", str(len(body)).encode()))
                     await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
@@ -322,6 +345,89 @@ class HostProxyMiddleware:
             await send({"type": "http.response.body", "body": b""})
         finally:
             await resp.aclose()
+
+    # ------------------------------------------------------------------
+    # visitor feedback (see feedback.py)
+    # ------------------------------------------------------------------
+    async def _feedback_route(self, scope, receive, send, kind, app_id, headers, share_feedback) -> None:
+        from . import feedback
+
+        path = scope.get("path") or ""
+        method = scope.get("method") or "GET"
+        local = kind == "app"  # named URL: only reachable on this computer
+        allowed = local or share_feedback
+        if not allowed:
+            return await _send_json(send, 404, {"detail": "feedback is off for this link"})
+
+        if path == _FB + ".js" and method == "GET":
+            try:
+                with open(_WIDGET, "rb") as fh:
+                    js = fh.read()
+            except OSError:
+                return await _send_json(send, 404, {"detail": "widget missing"})
+            await send({"type": "http.response.start", "status": 200, "headers": [
+                (b"content-type", b"application/javascript; charset=utf-8"), (b"cache-control", b"no-store"),
+                (b"content-length", str(len(js)).encode())]})
+            await send({"type": "http.response.body", "body": js})
+            return
+
+        if path == _FB and method == "POST":
+            raw = await _read_body(receive, 16384)
+            if raw is None:
+                return await _send_json(send, 413, {"detail": "too large"})
+            client = (headers.get(b"cf-connecting-ip") or b"").decode("latin-1") or \
+                str((scope.get("client") or ("?",))[0])
+            if not local and feedback.rate_limited(app_id, client):
+                return await _send_json(send, 429, {"detail": "too much feedback at once — try again in a few minutes"})
+            try:
+                data = json.loads(raw.decode("utf-8") or "{}")
+                item = await asyncio.to_thread(feedback.add, app_id, data, source=kind)
+            except (ValueError, UnicodeDecodeError) as exc:
+                return await _send_json(send, 400, {"detail": str(exc) or "invalid feedback"})
+            return await _send_json(send, 201, {"ok": True, "id": item["id"]})
+
+        if not local:
+            return await _send_json(send, 404, {"detail": "not found"})
+
+        # owner-only (this computer): review mode on/off, list, resolve
+        if path == _FB + "/review" and method == "GET":
+            q = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
+            on = q.get("on", ["1"])[0] == "1"
+            to = q.get("to", ["/"])[0]
+            if not to.startswith("/") or to.startswith("//") or "\\" in to:
+                to = "/"
+            pin = q.get("pin", [""])[0]
+            if pin and re.fullmatch(r"[a-f0-9]{1,32}", pin):
+                to += "#homeport-fb=" + pin
+            cookie = f"{_REVIEW_COOKIE}=1; Path=/; SameSite=Lax" if on else \
+                f"{_REVIEW_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax"
+            await send({"type": "http.response.start", "status": 302, "headers": [
+                (b"location", to.encode("latin-1", "replace")), (b"set-cookie", cookie.encode()),
+                (b"cache-control", b"no-store"), (b"content-length", b"0")]})
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        if path == _FB + "/list" and method == "GET":
+            q = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
+            page = q.get("page", [""])[0]
+            found = await asyncio.to_thread(feedback.items, app_id)
+            if page:
+                found = [i for i in found if urlsplit(i.get("page") or "/").path == page]
+            return await _send_json(send, 200, {"items": found})
+
+        m = re.fullmatch(_FB + r"/([a-f0-9]{1,32})", path)
+        if m and method == "POST":
+            raw = await _read_body(receive, 1024) or b"{}"
+            try:
+                status = str(json.loads(raw.decode("utf-8") or "{}").get("status") or "")
+                item = await asyncio.to_thread(feedback.set_status, app_id, m.group(1), status)
+            except (ValueError, UnicodeDecodeError, AttributeError) as exc:
+                return await _send_json(send, 400, {"detail": str(exc) or "invalid"})
+            if item is None:
+                return await _send_json(send, 404, {"detail": "no such feedback"})
+            return await _send_json(send, 200, item)
+
+        return await _send_json(send, 404, {"detail": "not found"})
 
     # ------------------------------------------------------------------
     # WebSocket (dev-server live reload)
@@ -378,6 +484,43 @@ class HostProxyMiddleware:
                 await upstream.close()
             except Exception:
                 pass
+
+
+def _cookies(headers: dict) -> dict:
+    raw = headers.get(b"cookie", b"").decode("latin-1")
+    return dict(part.strip().split("=", 1) for part in raw.split(";") if "=" in part)
+
+
+def _inject_widget(body: bytes, mode: str) -> bytes:
+    """Add the feedback widget to a full HTML page (not to fragments)."""
+    if not _HTML_DOC.search(body[:4096]) and b"</body>" not in body.lower()[-4096:]:
+        return body
+    tag = f'<script src="{_FB}.js" data-mode="{mode}" defer></script>'.encode()
+    low = body.lower()
+    for marker in (b"</body>", b"</html>"):
+        i = low.rfind(marker)
+        if i >= 0:
+            return body[:i] + tag + body[i:]
+    return body + tag
+
+
+async def _read_body(receive, limit: int) -> Optional[bytes]:
+    body = b""
+    while True:
+        msg = await receive()
+        body += msg.get("body", b"")
+        if len(body) > limit:
+            return None
+        if not msg.get("more_body"):
+            return body
+
+
+async def _send_json(send, status: int, payload: dict) -> None:
+    data = json.dumps(payload).encode()
+    await send({"type": "http.response.start", "status": status, "headers": [
+        (b"content-type", b"application/json"), (b"cache-control", b"no-store"),
+        (b"content-length", str(len(data)).encode())]})
+    await send({"type": "http.response.body", "body": data})
 
 
 def _login_form(error: bool) -> str:

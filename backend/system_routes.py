@@ -106,10 +106,10 @@ async def open_app_target(app_id: str, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="request body must be valid JSON") from None
 
     target = body.get("target")
-    if target not in ("browser", "finder", "terminal", "app"):
+    if target not in ("browser", "finder", "terminal", "app", "share"):
         raise HTTPException(
             status_code=400,
-            detail="target must be one of 'browser', 'finder', 'terminal', 'app'",
+            detail="target must be one of 'browser', 'finder', 'terminal', 'app', 'share'",
         )
 
     if get_app_config is None:
@@ -118,6 +118,16 @@ async def open_app_target(app_id: str, request: Request) -> dict:
     cfg = get_app_config(app_id)
     if cfg is None:
         raise HTTPException(status_code=404, detail=f"unknown app id: {app_id}")
+
+    if target == "share":
+        # the app's public share link (the desktop app can't open it by itself)
+        from . import share_routes
+        info = share_routes.tunnels.share_info(app_id)
+        url = (info or {}).get("url")
+        if not url:
+            raise HTTPException(status_code=409, detail="this app has no public link right now")
+        await asyncio.to_thread(osutil.open_url, url)
+        return {"ok": True, "target": "share", "url": url}
 
     path = cfg.get("path")
     if not path or not os.path.isdir(path):
@@ -143,7 +153,12 @@ async def open_app_target(app_id: str, request: Request) -> dict:
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", app_id):
             raise HTTPException(status_code=400, detail="app id can't be used in a URL")
         port = request.url.port or 80
-        url = f"http://{app_id}.localhost:{port}/"
+        # optional page of the app, e.g. "/pricing" or the feedback review link
+        page = body.get("path") or "/"
+        if not isinstance(page, str) or not page.startswith("/") or page.startswith("//") \
+                or "\\" in page or any(c in page for c in "\r\n\t ") or len(page) > 2000:
+            raise HTTPException(status_code=400, detail="path must be a page of the app, like /about")
+        url = f"http://{app_id}.localhost:{port}{page}"
         try:
             await asyncio.to_thread(osutil.open_url, url)
             return {"ok": True, "target": "app", "url": url}

@@ -364,6 +364,7 @@
             <option value="1440">24 hours</option>
           </select>
         </label>
+        <label class="check share-fb"><input type="checkbox" id="share-feedback" /> <span><b>Let visitors leave feedback</b><br /><em class="muted">Adds a Feedback button to the pages. Visitors point at a spot and write a note; notes are saved in Homeport on this computer.</em></span></label>
         <p class="hint">Public links are free Cloudflare Quick Tunnels: no account, nothing to pay. The address changes each time you share.</p>
       </div>
       <footer class="modal-foot">
@@ -498,6 +499,30 @@
         <p class="hint">Run a database or dev service like any other app. Homeport uses the one installed on this computer, or Docker if you have it. Data stays in this project&rsquo;s <code>data/services/</code> folder. No accounts.</p>
         <div id="svc-list" class="svc-list"></div>
       </div>
+    </div>
+  </div>
+
+  <div id="fb-backdrop" class="backdrop" hidden>
+    <div class="modal fb-dialog" role="dialog" aria-labelledby="fb-title">
+      <header class="modal-head">
+        <h2 id="fb-title">Feedback</h2>
+        <button type="button" id="fb-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="fb-tools">
+        <div class="seg" id="fb-filter" role="group" aria-label="Show">
+          <button type="button" data-filter="open" class="active">Open</button>
+          <button type="button" data-filter="resolved">Resolved</button>
+          <button type="button" data-filter="all">All</button>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" id="fb-view-on" class="btn small primary" title="Open the site with the notes pinned on the pages">View with feedback</button>
+        <button type="button" id="fb-view-off" class="btn small" title="Open the site without feedback">View without</button>
+      </div>
+      <div id="fb-body" class="form-body fb-body"></div>
+      <footer class="modal-foot">
+        <span id="fb-share-state" class="muted fb-share-state"></span>
+        <button type="button" id="fb-clear" class="btn ghost small">Delete resolved</button>
+      </footer>
     </div>
   </div>
 

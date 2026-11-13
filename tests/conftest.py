@@ -22,6 +22,12 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
     from backend import app_settings
     settings_file = str(tmp_path_factory.mktemp("settings") / "settings.json")
     monkeypatch.setattr(app_settings, "_file", lambda: settings_file)
+    # visitor feedback goes to a throw-away folder too
+    from backend import feedback
+    feedback_dir = str(tmp_path_factory.mktemp("feedback"))
+    monkeypatch.setattr(feedback, "_dir", lambda: feedback_dir)
+    monkeypatch.setattr(feedback, "_open_counts", {})
+    monkeypatch.setattr(feedback, "_recent", __import__("collections").defaultdict(__import__("collections").deque))
 
 
 @pytest.fixture

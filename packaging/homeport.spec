@@ -25,6 +25,7 @@ a = Analysis(
         (os.path.join(ROOT, "ui"), "ui"),
         (os.path.join(ROOT, "recipes"), "recipes"),
         (os.path.join(ROOT, "skills"), "skills"),
+        (os.path.join(ROOT, "backend", "feedback_widget.js"), "backend"),
     ],
     hiddenimports=hidden,
     excludes=["tkinter", "pytest", "_pytest"],

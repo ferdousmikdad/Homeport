@@ -2,7 +2,8 @@
 
     GET    /api/share/status               is cloudflared installed?
     POST   /api/share/install              download cloudflared into bin/
-    POST   /api/apps/{id}/share            {password?, expires_minutes?} -> share state
+    POST   /api/apps/{id}/share            {password?, expires_minutes?, feedback?} -> share state
+    PATCH  /api/apps/{id}/share            {feedback} -> share state (same link)
     DELETE /api/apps/{id}/share            stop sharing
     POST   /api/apps/{id}/lan              Wi-Fi preview on  -> {url, ip, port}
     DELETE /api/apps/{id}/lan              Wi-Fi preview off
@@ -62,6 +63,7 @@ async def share_app(app_id: str, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="password must be text")
     if expires in ("", 0, "0"):
         expires = None
+    feedback = bool(body.get("feedback"))
     manager_port = request.url.port or 7777
 
     port = get_running_port(app_id)
@@ -73,7 +75,7 @@ async def share_app(app_id: str, request: Request) -> dict:
     try:
         return await asyncio.to_thread(
             lambda: tunnels.start(app_id, int(port), manager_port=manager_port,
-                                  password=password, expires_minutes=expires)
+                                  password=password, expires_minutes=expires, feedback=feedback)
         )
     except CloudflaredMissing as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -81,6 +83,21 @@ async def share_app(app_id: str, request: Request) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.patch("/api/apps/{app_id}/share")
+async def update_share(app_id: str, request: Request) -> dict:
+    """Change a live share without a new link: {feedback: bool}."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="request body must be valid JSON") from None
+    if not isinstance(body, dict) or not isinstance(body.get("feedback"), bool):
+        raise HTTPException(status_code=400, detail="send {feedback: true|false}")
+    state = await asyncio.to_thread(tunnels.set_feedback, app_id, body["feedback"])
+    if state is None:
+        raise HTTPException(status_code=404, detail="this app isn't being shared")
+    return state
 
 
 @router.delete("/api/apps/{app_id}/share")

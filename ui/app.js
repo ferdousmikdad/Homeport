@@ -135,6 +135,7 @@
     shareInstall: $("share-install"),
     shareInstallBtn: $("share-install-btn"),
     sharePassword: $("share-password"),
+    shareFeedback: $("share-feedback"),
     shareExpiry: $("share-expiry"),
   };
 
@@ -394,10 +395,20 @@
     menu.hidden = !open;
     trigger.setAttribute("aria-expanded", String(open));
     if (open) {
-      // Flip upward when the menu would run off the bottom of the viewport.
+      // Open toward the side with more room; if it still doesn't fit, scroll inside it
+      // (flipping up from a card near the top used to push the first items off-screen).
       menu.classList.remove("menu-up");
-      const rect = menu.getBoundingClientRect();
-      if (rect.bottom > window.innerHeight - 8) menu.classList.add("menu-up");
+      menu.style.maxHeight = "";
+      const t = trigger.getBoundingClientRect();
+      const h = menu.scrollHeight;
+      const below = window.innerHeight - t.bottom - 14;
+      const above = t.top - 14;
+      if (h > below && above > below) {
+        menu.classList.add("menu-up");
+        if (h > above) menu.style.maxHeight = Math.floor(above) + "px";
+      } else if (h > below) {
+        menu.style.maxHeight = Math.max(160, Math.floor(below)) + "px";
+      }
     }
   }
 
@@ -599,6 +610,10 @@
     const titleRow = el("div", "card-title-row");
     const name = el("h2", "card-name");
     titleRow.appendChild(name);
+    const fbChip = button("fb-chip", "");
+    fbChip.hidden = true;
+    fbChip.title = "Open feedback from visitors";
+    titleRow.appendChild(fbChip);
     const subtitle = el("div", "card-sub");
     const status = el("span", "status");
     status.appendChild(el("span", "status-dot"));
@@ -655,6 +670,8 @@
     shareLink.target = "_blank";
     shareLink.rel = "noopener noreferrer";
     const shareMeta = el("span", "share-meta");
+    const shareFb = button("btn small ghost share-fb-btn", "Feedback");
+    shareFb.title = "Let visitors leave feedback on the pages (same link)";
     const shareQr = button("btn small ghost", "QR");
     shareQr.title = "Show a QR code to open it on a phone";
     const shareCopy = button("btn small ghost", "Copy");
@@ -663,6 +680,7 @@
     shareBar.appendChild(shareText);
     shareBar.appendChild(shareLink);
     shareBar.appendChild(shareMeta);
+    shareBar.appendChild(shareFb);
     shareBar.appendChild(shareQr);
     shareBar.appendChild(shareCopy);
     shareBar.appendChild(shareStop);
@@ -695,6 +713,12 @@
       menu.appendChild(b);
       return b;
     };
+    // Open first: the link on the card can be hard to hit (or blocked in the desktop app).
+    const miBrowser = mi("Open");
+    miBrowser.title = "Open the app in your browser (starts it first if needed)";
+    const miCopyLink = mi("Copy link");
+    const miFeedback = mi("Feedback…");
+    menu.appendChild(el("hr"));
     const miRestart = mi("Restart");
     const miEdit = mi("Edit…");
     menu.appendChild(el("hr"));
@@ -712,7 +736,6 @@
     });
     menu.appendChild(colorRow);
     menu.appendChild(el("hr"));
-    const miBrowser = mi("Open in browser");
     const miPhone = mi("Open on phone…");
     const miWp = mi("WordPress…");
     miWp.addEventListener("click", () => {
@@ -768,6 +791,34 @@
       if (cur && cur.share && cur.share.url) copyText(cur.share.url);
     });
     shareStop.addEventListener("click", () => stopShare(id));
+    shareFb.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur && cur.share) setShareFeedback(id, !cur.share.feedback);
+    });
+    fbChip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const cur = findApp(id);
+      if (cur) openFeedback(cur);
+    });
+    miFeedback.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur) openFeedback(cur);
+    });
+    miCopyLink.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur) copyText(cur.share && cur.share.url ? cur.share.url : namedUrl(cur));
+    });
+    // In the desktop app a plain link may not open a browser: let Homeport open it.
+    portLink.addEventListener("click", (e) => {
+      if (!window.pywebview) return;
+      e.preventDefault();
+      openInBrowser(id);
+    });
+    shareLink.addEventListener("click", (e) => {
+      if (!window.pywebview) return;
+      e.preventDefault();
+      openTarget(id, "share");
+    });
     logsBtn.addEventListener("click", () => {
       const cur = findApp(id);
       if (cur) openLogs(cur);
@@ -851,6 +902,7 @@
       el: card,
       logo, logoKey: null, stats,
       shareBar, shareText, shareLink, shareBtn, shareMeta, gitChip, whyBtn, miPhone, miPull, miConnUrl, miConnEnv,
+      shareFb, fbChip, miFeedback,
       wpBar, miWp,
       name, path, desc, status, statusText,
       portLink, portNone, health, tech, category,
@@ -893,7 +945,12 @@
       v.portLink.hidden = true;
       v.portNone.hidden = false;
     }
-    v.miBrowser.disabled = port === null;
+    v.miBrowser.disabled = port === null && !app.command;
+    const fbOpen = app.feedback_open || 0;
+    v.fbChip.hidden = !fbOpen;
+    v.fbChip.textContent = "💬 " + fbOpen;
+    v.fbChip.setAttribute("aria-label", fbOpen + " open feedback");
+    v.miFeedback.textContent = fbOpen ? "Feedback… (" + fbOpen + " open)" : "Feedback…";
 
     if (app.health_url && status === "running" && app.healthy !== null && app.healthy !== undefined) {
       v.health.hidden = false;
@@ -959,6 +1016,9 @@
       if (share.expires_at) bits.push(timeLeft(share.expires_at) + " left");
       v.shareMeta.textContent = bits.join(" · ");
       v.shareMeta.hidden = !bits.length;
+      v.shareFb.textContent = share.feedback ? "Feedback on" : "Feedback off";
+      v.shareFb.classList.toggle("on", Boolean(share.feedback));
+      v.shareFb.setAttribute("aria-pressed", String(Boolean(share.feedback)));
       if (share.status === "live" && share.url) {
         v.shareText.textContent = "Public";
         v.shareLink.textContent = share.url.replace(/^https:\/\//, "");
@@ -1070,8 +1130,28 @@
       }
       await runAction(id, "start"); // opens by itself once it's ready
     } else {
-      window.open(namedUrl(cur), "_blank", "noopener");
+      openAppPath(id, "/");
     }
+  }
+
+  // Open a page of the app (named URL). The desktop app's web view can't open
+  // new browser tabs itself, so there Homeport opens the browser; in a normal
+  // browser a new tab is used, with Homeport as the fallback if it's blocked.
+  function openAppPath(id, path) {
+    const cur = findApp(id);
+    if (!cur) return;
+    const url = namedUrl(cur).replace(/\/$/, "") + (path || "/");
+    const viaHomeport = () =>
+      request("/api/apps/" + encodeURIComponent(id) + "/open", {
+        method: "POST",
+        body: JSON.stringify({ target: "app", path: path || "/" }),
+      }).catch((err) => toast("Couldn't open it: " + err.message, "err"));
+    if (window.pywebview) {
+      viaHomeport();
+      return;
+    }
+    const win = window.open(url, "_blank", "noopener");
+    if (!win) viaHomeport();
   }
 
   async function openTarget(id, target) {
@@ -1763,6 +1843,7 @@
     share.appId = app.id;
     els.shareTitle.textContent = "Share “" + app.name + "”";
     els.sharePassword.value = "";
+    els.shareFeedback.checked = loadPref("share_feedback", "0") === "1";
     els.shareBackdrop.hidden = false;
     try {
       share.status = await request("/api/share/status");
@@ -1788,8 +1869,13 @@
     try {
       await request("/api/apps/" + encodeURIComponent(id) + "/share", {
         method: "POST",
-        body: JSON.stringify({ password: password || null, expires_minutes: Number(els.shareExpiry.value) || null }),
+        body: JSON.stringify({
+          password: password || null,
+          expires_minutes: Number(els.shareExpiry.value) || null,
+          feedback: els.shareFeedback.checked,
+        }),
       });
+      savePref("share_feedback", els.shareFeedback.checked ? "1" : "0");
       hideShare();
       toast(password ? "Creating a password-protected link…" : "Creating a public link…", "ok");
       fetchApps();
@@ -1809,6 +1895,204 @@
       toast("Couldn't stop sharing: " + err.message, "err");
     }
   }
+
+  async function setShareFeedback(id, on) {
+    try {
+      await request("/api/apps/" + encodeURIComponent(id) + "/share", { method: "PATCH", body: JSON.stringify({ feedback: on }) });
+      toast(on ? "Visitors can now leave feedback (same link)" : "Feedback turned off for this link", "ok");
+      fetchApps();
+      if (fb.appId === id) renderFeedback();
+    } catch (err) {
+      toast("Couldn't change feedback: " + err.message, "err");
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Feedback from visitors (notes left on a shared link)                */
+  /* ------------------------------------------------------------------ */
+
+  const fb = { appId: null, items: [], filter: "open", timer: null, loading: false };
+
+  function timeAgo(ts) {
+    const s = Math.max(0, Date.now() / 1000 - ts);
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + " min ago";
+    if (s < 86400) return Math.floor(s / 3600) + " h ago";
+    if (s < 86400 * 7) return Math.floor(s / 86400) + " d ago";
+    return new Date(ts * 1000).toLocaleDateString();
+  }
+
+  async function loadFeedback() {
+    if (!fb.appId || fb.loading) return;
+    fb.loading = true;
+    try {
+      const data = await request("/api/apps/" + encodeURIComponent(fb.appId) + "/feedback");
+      fb.items = data.items || [];
+    } catch (err) {
+      toast("Couldn't load feedback: " + err.message, "err");
+    } finally {
+      fb.loading = false;
+    }
+    renderFeedback();
+  }
+
+  function renderFeedback() {
+    const app = findApp(fb.appId);
+    if (!app) return;
+    $("fb-title").textContent = "Feedback for “" + app.name + "”";
+    $("fb-filter").querySelectorAll("button").forEach((b) => {
+      const n = fb.items.filter((i) => b.dataset.filter === "all" || i.status === b.dataset.filter).length;
+      b.textContent = { open: "Open", resolved: "Resolved", all: "All" }[b.dataset.filter] + " " + n;
+      b.classList.toggle("active", b.dataset.filter === fb.filter);
+    });
+    const shareState = $("fb-share-state");
+    if (app.share && app.share.feedback) shareState.textContent = "Visitors can leave feedback on the public link now.";
+    else if (app.share) shareState.textContent = "Shared, but feedback is off — turn it on from the link bar on the card.";
+    else shareState.textContent = "Share the app with “Let visitors leave feedback” to collect notes.";
+    $("fb-clear").hidden = !fb.items.some((i) => i.status === "resolved");
+
+    const body = $("fb-body");
+    body.textContent = "";
+    const shown = fb.items.filter((i) => fb.filter === "all" || i.status === fb.filter);
+    if (!shown.length) {
+      const empty = el("div", "fb-empty");
+      empty.appendChild(el("b", null, fb.filter === "resolved" ? "Nothing resolved yet" : "No feedback here yet"));
+      empty.appendChild(el("p", "hint", "When you share this app with feedback on, visitors get a Feedback button on the pages. They click a spot and write a note, and it shows up here."));
+      body.appendChild(empty);
+      return;
+    }
+    shown.forEach((item) => body.appendChild(feedbackRow(app, item)));
+  }
+
+  function feedbackRow(app, item) {
+    const row = el("div", "fb-item" + (item.status === "resolved" ? " resolved" : ""));
+    row.appendChild(el("p", "fb-msg", item.message));
+    const meta = el("div", "fb-meta");
+    meta.appendChild(el("b", null, item.name || "Anonymous"));
+    meta.appendChild(el("span", null, timeAgo(item.created_at || 0)));
+    const pageText = item.page || "/";
+    const page = el("code", null, pageText.length > 48 ? pageText.slice(0, 47) + "…" : pageText);
+    page.title = item.url || pageText;
+    meta.appendChild(page);
+    if (item.vw) meta.appendChild(el("span", null, Math.round(item.vw) + "×" + Math.round(item.vh || 0) + (item.vw < 700 ? " · phone" : "")));
+    if (!item.selector && item.xp == null) meta.appendChild(el("span", null, "general note"));
+    if (item.source === "local") meta.appendChild(el("span", null, "added by you"));
+    row.appendChild(meta);
+
+    const actions = el("div", "fb-actions");
+    const show = button("btn small", "Show on page");
+    show.title = "Open this page with the note pinned on it";
+    show.addEventListener("click", () => viewWithFeedback(app, item.page || "/", item.id));
+    const flip = button("btn small" + (item.status === "open" ? " primary" : ""), item.status === "open" ? "Resolve" : "Reopen");
+    flip.addEventListener("click", async () => {
+      flip.disabled = true;
+      try {
+        const upd = await request("/api/apps/" + encodeURIComponent(app.id) + "/feedback/" + item.id, {
+          method: "PATCH",
+          body: JSON.stringify({ status: item.status === "open" ? "resolved" : "open" }),
+        });
+        item.status = upd.status;
+        renderFeedback();
+        fetchApps();
+      } catch (err) {
+        toast(err.message, "err");
+        flip.disabled = false;
+      }
+    });
+    const del = button("btn small ghost", "Delete");
+    del.addEventListener("click", async () => {
+      if (del.dataset.armed !== "1") {
+        del.dataset.armed = "1";
+        del.textContent = "Delete?";
+        window.setTimeout(() => {
+          del.dataset.armed = "";
+          del.textContent = "Delete";
+        }, 3000);
+        return;
+      }
+      try {
+        await request("/api/apps/" + encodeURIComponent(app.id) + "/feedback/" + item.id, { method: "DELETE" });
+        fb.items = fb.items.filter((i) => i.id !== item.id);
+        renderFeedback();
+        fetchApps();
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    });
+    actions.append(show, flip, del);
+    row.appendChild(actions);
+    return row;
+  }
+
+  // The site with notes pinned on it (review mode), or the plain site.
+  function viewWithFeedback(app, page, pin) {
+    if (!isActive(app)) {
+      toast("Start " + app.name + " first", "warn");
+      return;
+    }
+    let path = "/__homeport/fb/review?on=1&to=" + encodeURIComponent(page || "/");
+    if (pin) path += "&pin=" + encodeURIComponent(pin);
+    openAppPath(app.id, path);
+  }
+
+  function viewWithoutFeedback(app) {
+    if (!isActive(app)) {
+      toast("Start " + app.name + " first", "warn");
+      return;
+    }
+    openAppPath(app.id, "/__homeport/fb/review?on=0&to=%2F");
+  }
+
+  async function openFeedback(app) {
+    fb.appId = app.id;
+    fb.items = [];
+    fb.filter = "open";
+    $("fb-backdrop").hidden = false;
+    renderFeedback();
+    await loadFeedback();
+    if (fb.items.length && !fb.items.some((i) => i.status === "open")) {
+      fb.filter = "all";
+      renderFeedback();
+    }
+    window.clearInterval(fb.timer);
+    fb.timer = window.setInterval(loadFeedback, 5000); // new notes from visitors
+  }
+
+  function hideFeedback() {
+    $("fb-backdrop").hidden = true;
+    fb.appId = null;
+    window.clearInterval(fb.timer);
+    fb.timer = null;
+  }
+
+  $("fb-close").addEventListener("click", hideFeedback);
+  $("fb-backdrop").addEventListener("mousedown", (e) => {
+    if (e.target === $("fb-backdrop")) hideFeedback();
+  });
+  $("fb-filter").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-filter]");
+    if (!b) return;
+    fb.filter = b.dataset.filter;
+    renderFeedback();
+  });
+  $("fb-view-on").addEventListener("click", () => {
+    const app = findApp(fb.appId);
+    if (app) viewWithFeedback(app, "/", null);
+  });
+  $("fb-view-off").addEventListener("click", () => {
+    const app = findApp(fb.appId);
+    if (app) viewWithoutFeedback(app);
+  });
+  $("fb-clear").addEventListener("click", async () => {
+    const id = fb.appId;
+    try {
+      await request("/api/apps/" + encodeURIComponent(id) + "/feedback?status=resolved", { method: "DELETE" });
+      await loadFeedback();
+      fetchApps();
+    } catch (err) {
+      toast(err.message, "err");
+    }
+  });
 
   els.shareClose.addEventListener("click", hideShare);
   els.shareCancel.addEventListener("click", hideShare);
@@ -3277,6 +3561,7 @@
       else if (!$("disc-backdrop").hidden) hideDiscover();
       else if (!$("svc-backdrop").hidden) hideServices();
       else if (!$("settings-backdrop").hidden) hideSettings();
+      else if (!$("fb-backdrop").hidden) hideFeedback();
       else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
