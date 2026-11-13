@@ -678,6 +678,34 @@ async def delete_app(app_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # routes — lifecycle
 # ---------------------------------------------------------------------------
+def _stop_port_owner(pid: int, port: int, timeout: float = 5.0) -> None:
+    """Stop the program holding ``port`` and wait until it has really let go.
+
+    A fixed short pause wasn't enough on slow machines: the app then started
+    while the old program was still exiting and crashed with "address in use".
+    Waits for the process to exit and the port to close (forcing it after 2s)."""
+    import psutil
+
+    def gone() -> bool:
+        try:
+            return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+        except psutil.NoSuchProcess:
+            return True
+        except psutil.Error:
+            return False
+
+    osutil.kill_pid(pid)
+    started = time.monotonic()
+    forced = False
+    while time.monotonic() - started < timeout:
+        if gone() and not monitor.port_open(port, timeout=0.1):
+            return
+        if not forced and time.monotonic() - started > 2.0:
+            osutil.kill_pid(pid, force=True)
+            forced = True
+        time.sleep(0.05)
+
+
 @app.post("/api/apps/{app_id}/start")
 async def start_app(app_id: str, kill_conflict: int = Query(default=0)) -> dict:
     cfg = _cfg_or_404(app_id)
@@ -694,14 +722,8 @@ async def start_app(app_id: str, kill_conflict: int = Query(default=0)) -> dict:
         owner = await asyncio.to_thread(monitor.find_port_owner, int(check_port))
         if owner and owner.get("pid") != pm.pid(app_id):
             if kill_conflict == 1:
-                try:
-                    osutil.kill_pid(owner["pid"])
-                    await asyncio.sleep(0.3)
-                    if await asyncio.to_thread(monitor.port_open, int(check_port), timeout=0.1):
-                        osutil.kill_pid(owner["pid"], force=True)
-                        await asyncio.sleep(0.2)
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(_stop_port_owner, int(owner["pid"]), int(check_port))
             else:
                 raise HTTPException(
                     status_code=409,

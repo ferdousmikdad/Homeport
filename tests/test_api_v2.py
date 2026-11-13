@@ -164,6 +164,9 @@ def test_port_conflict_and_kill(client, demo_dir):
     script = (
         f"import socket, time\n"
         f"s = socket.socket()\n"
+        # like real dev servers: reuse the port at once, even while old
+        # connections from the port checks are still closing (TIME_WAIT)
+        f"s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
         f"s.bind(('127.0.0.1', {conflict_port}))\n"
         f"s.listen(16)\n"
         f"s.settimeout(30)\n"
