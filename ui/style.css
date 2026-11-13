@@ -1712,3 +1712,16 @@ body.side-hidden .sidebar { display: none; }
 .link-btn:hover { color: var(--text); }
 .hint .link-btn { font-size: inherit; margin-left: 4px; }
 .browse-item.is-file .browse-name { font-family: var(--mono); font-size: 12.5px; }
+
+/* ---------- Sidebar: support + GitHub ---------- */
+.coffee-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; margin: 0 2px; border-radius: 999px;
+  background: #111214; color: #fff; border: 1px solid #111214;
+  font-size: 13.5px; font-weight: 600; text-decoration: none;
+  transition: transform 0.15s, background 0.15s;
+}
+.coffee-btn:hover { background: #26272b; transform: translateY(-1px); }
+.coffee-btn svg { width: 17px; height: 17px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .coffee-btn { border-color: #2c2c31; } }
+:root[data-theme="dark"] .coffee-btn { border-color: #2c2c31; }

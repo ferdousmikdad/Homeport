@@ -411,3 +411,6 @@ section { padding: 120px 0; }
 .hero .term-install { text-align: left; }
 .hero .term-note { text-align: center; }
 .hero-art { text-align: left; }
+
+/* Support Kori widget: brand-black button (the widget's own text is black) */
+.sk-widget-btn { color: #fff !important; border: 1px solid #2a2a2e; font-family: var(--font) !important; font-weight: 500 !important; }
