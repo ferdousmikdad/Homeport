@@ -40,14 +40,23 @@ try {
         Write-Host "Homeport installed - find it in the Start menu. Opening it now." -ForegroundColor Green
         Start-Process $exe
     } else {
-        # No release yet: run from source (run.bat sets everything up by itself).
+        # No app download: run from source (run.bat sets everything up by itself).
+        # Use the latest release's source so it matches the apps, not unreleased
+        # work on main; $env:HOMEPORT_REF picks another tag or branch.
+        $ref = $env:HOMEPORT_REF
+        if (-not $ref) {
+            try { $ref = (Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing).tag_name } catch { $ref = $null }
+            if (-not $ref) { $ref = 'main' }
+        }
         $src = Join-Path $env:LOCALAPPDATA 'Homeport\app'
-        Write-Host "Installing Homeport from source into $src ..."
-        Invoke-WebRequest "https://github.com/$repo/archive/refs/heads/main.zip" -OutFile "$tmp\src.zip" -UseBasicParsing
-        Expand-Archive "$tmp\src.zip" -DestinationPath $tmp -Force
+        Write-Host "Installing Homeport ($ref) from source into $src ..."
+        Invoke-WebRequest "https://github.com/$repo/archive/$ref.zip" -OutFile "$tmp\src.zip" -UseBasicParsing
+        $unpacked = Join-Path $tmp 'src'
+        Expand-Archive "$tmp\src.zip" -DestinationPath $unpacked -Force
         if (Test-Path $src) { Remove-Item $src -Recurse -Force }
         New-Item -ItemType Directory -Path (Split-Path $src) -Force | Out-Null
-        Move-Item (Join-Path $tmp 'Homeport-main') $src
+        # GitHub names the folder after the version (e.g. Homeport-1.0.1), so take the only one
+        Move-Item (Get-ChildItem $unpacked -Directory | Select-Object -First 1).FullName $src
         Get-ChildItem $src -Recurse | Unblock-File
         New-Shortcut (Join-Path ([Environment]::GetFolderPath('Programs')) 'Homeport.lnk') (Join-Path $src 'run.bat') $src
         Write-Host "Homeport installed - find it in the Start menu. Starting it now." -ForegroundColor Green

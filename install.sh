@@ -64,18 +64,28 @@ EOF
 fi
 
 # ---- Anything else: run from source (no install needed first) ----
+# Use the source of the latest release, so source installs get the same version
+# as the apps (not unreleased work on main). HOMEPORT_REF picks another tag or
+# branch; with no release reachable, fall back to main.
+REF="${HOMEPORT_REF:-}"
+if [ -z "$REF" ]; then
+    REF="$(curl -fsSL --retry 2 "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)" || REF=""
+    [ -n "$REF" ] || REF=main
+fi
 DIR="${HOMEPORT_HOME:-$HOME/.homeport/app}"
-say "Installing Homeport from source into $DIR …"
+say "Installing Homeport ($REF) from source into $DIR …"
 if command -v git >/dev/null 2>&1; then
     if [ -d "$DIR/.git" ]; then
-        git -C "$DIR" pull --ff-only --quiet
+        git -C "$DIR" fetch --quiet --depth 1 origin "$REF"
+        git -C "$DIR" -c advice.detachedHead=false checkout --quiet FETCH_HEAD
     else
         rm -rf "$DIR"
         mkdir -p "$(dirname "$DIR")"
-        git clone --depth 1 --quiet "https://github.com/$REPO" "$DIR"
+        git -c advice.detachedHead=false clone --depth 1 --branch "$REF" --quiet "https://github.com/$REPO" "$DIR"
     fi
 else
-    fetch "https://github.com/$REPO/archive/refs/heads/main.tar.gz" "$TMP/src.tar.gz"
+    fetch "https://github.com/$REPO/archive/$REF.tar.gz" "$TMP/src.tar.gz"
     rm -rf "$DIR"
     mkdir -p "$DIR"
     tar -xzf "$TMP/src.tar.gz" -C "$DIR" --strip-components=1
