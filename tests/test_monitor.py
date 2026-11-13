@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import socket
+import socketserver
 import subprocess
 import sys
 import threading
@@ -191,9 +192,18 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
+class _QuickHTTPServer(HTTPServer):
+    """HTTPServer without the host-name lookup in server_bind (getfqdn), which can
+    hang for 30s+ on CI machines (macOS especially)."""
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+
+
 @pytest.fixture
 def http_server():
-    server = HTTPServer(("127.0.0.1", 0), _Handler)
+    server = _QuickHTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

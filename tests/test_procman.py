@@ -119,8 +119,9 @@ def test_ring_buffer_is_bounded(tmp_path):
     )
     try:
         manager.start(cfg("bounded", tmp_path, f"{sys.executable} -u {script}"))
-        assert wait_until(lambda: len(manager.logs("bounded")) >= 3)
-        time.sleep(0.3)
+        # wait for the LAST line, not a fixed delay: slow CI machines print slowly
+        assert wait_until(lambda: (manager.logs("bounded", tail=100) or [None])[-1] == "9"), \
+            manager.logs("bounded", tail=100)
         lines = manager.logs("bounded", tail=100)
         assert len(lines) <= 3
         assert lines[-1] == "9"

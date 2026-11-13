@@ -50,8 +50,21 @@ def test_terminate_tree_stops_shell_and_grandchildren():
         time.sleep(0.1)
     osutil.terminate_tree(proc, timeout=3)
     assert proc.poll() is not None
-    time.sleep(0.2)
-    assert not [k for k in kids if k.is_running() and k.status() != psutil.STATUS_ZOMBIE]
+
+    def survivors():
+        alive = []
+        for k in kids:
+            try:
+                if k.is_running() and k.status() != psutil.STATUS_ZOMBIE:
+                    alive.append(k)
+            except psutil.NoSuchProcess:
+                pass
+        return alive
+    # the OS may need a moment to reap them on a slow machine
+    deadline = time.time() + 5
+    while survivors() and time.time() < deadline:
+        time.sleep(0.05)
+    assert not survivors()
 
 
 def test_kill_pid_ignores_missing_process():
