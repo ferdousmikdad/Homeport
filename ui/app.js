@@ -3532,6 +3532,7 @@
     act("Discover projects", "discover", () => openDiscover(), "scan folder import find");
     act("Add from GitHub…", "discover", () => openGitHub(), "clone repo repository git github");
     act("Databases & services…", "layers", () => openServices(), "postgres mysql mariadb redis mongodb mailpit database");
+    act("Check for updates", "restart", () => loadUpdate(true).then((st) => st && openUpdate()), "update version new release");
     act("Settings…", "settings", () => openSettings(), "preferences theme dark light ai model ollama local qwen llama download shortcuts");
     for (const [kind, label] of [["postgres", "PostgreSQL"], ["mysql", "MySQL / MariaDB"], ["redis", "Redis"], ["mongodb", "MongoDB"], ["mailpit", "Mailpit (email testing)"]]) {
       act("Add " + label, "plus", () => addService(kind), "database service");
@@ -3711,6 +3712,7 @@
       else if (!$("settings-backdrop").hidden) hideSettings();
       else if (!$("fb-backdrop").hidden) hideFeedback();
       else if (!$("gh-backdrop").hidden) hideGitHub();
+      else if (!$("upd-backdrop").hidden) hideUpdate();
       else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
@@ -4096,6 +4098,96 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Update check: a quiet notice when a newer Homeport is out            */
+  /* ------------------------------------------------------------------ */
+
+  const upd = { st: null };
+
+  function renderUpdateNote() {
+    const st = upd.st;
+    const note = $("update-note");
+    const show = !!(st && st.enabled && st.available && loadPref("update_dismissed", "") !== st.latest);
+    note.hidden = !show;
+    if (show) {
+      $("update-note-text").textContent = "Update available · v" + st.latest;
+      note.title = "Homeport " + st.latest + " is out (you have " + st.current + ")";
+    }
+  }
+
+  async function loadUpdate(force) {
+    try {
+      upd.st = await request(force ? "/api/update/check" : "/api/update", force ? { method: "POST" } : undefined);
+    } catch (err) {
+      return null;
+    }
+    renderUpdateNote();
+    return upd.st;
+  }
+
+  function openUpdate() {
+    const st = upd.st;
+    if (!st) return;
+    $("upd-title").textContent = st.available ? "Homeport " + st.latest + " is available" : "Homeport is up to date";
+    const body = $("upd-body");
+    body.textContent = "";
+    body.appendChild(el("p", "upd-versions", st.available ? "You have " + st.current + ". The new version is " + st.latest + "." : "You have the latest version, " + st.current + "."));
+    if (st.available && st.notes) body.appendChild(el("pre", "upd-notes", st.notes));
+    const more = el("a", "set-inline-link", "See everything that's new");
+    more.href = st.changelog;
+    more.target = "_blank";
+    more.rel = "noopener";
+    body.appendChild(more);
+    const how = st.how || {};
+    const action = $("upd-action");
+    action.textContent = "";
+    if (st.available) {
+      if (how.kind === "desktop") {
+        body.appendChild(el("p", "hint", "Download the new version and install it over this one — your apps and settings stay."));
+        const dl = el("a", "btn primary", "Download " + st.latest);
+        dl.href = how.download;
+        dl.target = "_blank";
+        dl.rel = "noopener";
+        action.appendChild(dl);
+      } else {
+        body.appendChild(el("p", "hint", how.kind === "script"
+          ? "Run the install command again — it updates Homeport and keeps your apps and settings:"
+          : "Homeport runs from a copy of its code. Update it in a terminal, in " + (how.folder || "Homeport's folder") + ", then restart Homeport:"));
+        body.appendChild(el("code", "upd-cmd", how.command));
+        const copy = button("btn primary", "Copy command");
+        copy.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(how.command);
+            toast("Command copied", "ok");
+          } catch (e) {
+            window.prompt("Copy this command:", how.command);
+          }
+        });
+        action.appendChild(copy);
+      }
+    }
+    $("upd-later").textContent = st.available ? "Later" : "Close";
+    $("upd-backdrop").hidden = false;
+  }
+
+  function hideUpdate() {
+    $("upd-backdrop").hidden = true;
+  }
+
+  $("update-note").addEventListener("click", openUpdate);
+  $("upd-close").addEventListener("click", hideUpdate);
+  $("upd-later").addEventListener("click", () => {
+    // "Later": hide the sidebar notice for this version (it comes back for the next one)
+    if (upd.st && upd.st.available) savePref("update_dismissed", upd.st.latest);
+    renderUpdateNote();
+    hideUpdate();
+  });
+  $("upd-backdrop").addEventListener("mousedown", (e) => {
+    if (e.target === $("upd-backdrop")) hideUpdate();
+  });
+  loadUpdate(false);
+  window.setInterval(() => loadUpdate(false), 60 * 60 * 1000); // the server checks GitHub at most daily
+
+  /* ------------------------------------------------------------------ */
   /* Add from GitHub: pick one of your repos (or paste a link), clone, run */
   /* ------------------------------------------------------------------ */
 
@@ -4409,6 +4501,11 @@
       [setSwitch(loadPref("auto_open", "1") === "1", "Open apps when they start", (on) => savePref("auto_open", on ? "1" : "0"))]));
     body.appendChild(g2.wrap);
 
+    g2.group.appendChild(setRow("Check for updates", "Once a day, Homeport asks GitHub for the newest version and tells you",
+      [setSwitch(!upd.st || upd.st.enabled, "Check for updates", async (on) => {
+        await saveSetting({ check_updates: on });
+        await loadUpdate(on);
+      })]));
     const mod = IS_APPLE ? "⌘" : "Ctrl ";
     const g3 = setGroup("Keyboard shortcuts");
     [
@@ -4712,6 +4809,19 @@
   function paneAbout(body) {
     const info = settings.about;
     const g = setGroup(null);
+    const us = upd.st;
+    const verState = us && us.available ? setValue("v" + us.latest + " available", "warn") : us && us.latest ? setValue("Up to date", "ok") : null;
+    const checkBtn = button("btn small", us && us.available ? "Update…" : "Check now");
+    checkBtn.addEventListener("click", async () => {
+      if (us && us.available) return openUpdate();
+      checkBtn.disabled = true;
+      checkBtn.textContent = "Checking…";
+      const st = await loadUpdate(true);
+      if (st && st.error) toast("Couldn't check: " + st.error, "warn");
+      else if (st && !st.available) toast("Homeport " + st.current + " is the latest version", "ok");
+      renderSettings();
+    });
+    g.group.appendChild(setRow("Version", us ? us.current : "…", [verState, checkBtn]));
     g.group.appendChild(setRow("Homeport address", null, [setValue(info ? info.address : window.location.origin)]));
     if (info) {
       const open = button("btn small", "Open folder");

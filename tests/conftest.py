@@ -36,6 +36,16 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(github, "gh_cli", lambda: None)
     for cache in (github._user_cache, github._remote_cache, github._card_cache, github._device):
         cache.clear()
+    # update check: a throw-away cache, never the network, no background loop
+    from backend import updates
+    upd_file = str(tmp_path_factory.mktemp("updates") / "update.json")
+    monkeypatch.setattr(updates, "_file", lambda: upd_file)
+    monkeypatch.setattr(updates, "_state", {})
+    monkeypatch.setattr(updates, "transport", __import__("httpx").MockTransport(lambda r: __import__("httpx").Response(503)))
+
+    async def _no_loop():
+        return None
+    monkeypatch.setattr(updates, "background_loop", _no_loop)
 
 
 @pytest.fixture

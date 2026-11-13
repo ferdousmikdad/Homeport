@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, app_settings, feedback, github, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, app_settings, feedback, github, updates, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
@@ -446,9 +446,11 @@ async def _lifespan(_app: FastAPI):
     with contextlib.suppress(Exception):
         await _refresh_all()
     _ticker = asyncio.create_task(_tick_loop())
+    update_task = asyncio.create_task(updates.background_loop())
     try:
         yield
     finally:
+        update_task.cancel()
         if _ticker is not None:
             _ticker.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -485,6 +487,7 @@ app.include_router(local_ai.router)
 app.include_router(app_settings.router)
 app.include_router(feedback.router)
 app.include_router(github.router)
+app.include_router(updates.router)
 app.include_router(share_routes.router)
 # Named URLs (<id>.localhost) and password-protected shares, routed by Host.
 app.add_middleware(proxy.HostProxyMiddleware)

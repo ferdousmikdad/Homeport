@@ -144,3 +144,9 @@ Edit button on each card (same modal as Add, prefilled; saves via PATCH; "Restar
 # SPEC v8 (addendum) — GitHub integration, phase 1
 
 See `docs/GITHUB.md` for the full design. `backend/github.py`: connect (device flow when `CLIENT_ID` / `HOMEPORT_GITHUB_CLIENT_ID` is set, GitHub CLI login, or a pasted token saved in `<data dir>/github.json` mode 600), `/api/github/{status,device/start,device/poll,token,disconnect,repos,clone}`, setting `projects_dir`. App state `github: {repo, url, ci, ci_url, prs}` (cached 2 min per repo/branch, background refresh; CI and PRs only when connected). *Pull & restart* uses the login for https github.com remotes via `GIT_CONFIG_*` env (never written to disk). UI: sidebar Tools → Add from GitHub (also ⌘K), Settings → GitHub, card branch shows ✓/✗/● CI (click opens the run), ⋯ → Open on GitHub / Pull requests (N).
+
+# SPEC v9 (addendum) — version and update check
+
+- `backend/version.py` (`__version__`) is the version; it must match the newest entry in `site/changelog/index.html` and `Homeport.app/Contents/Info.plist` (tested), and the release tag.
+- `backend/updates.py`: `GET /api/update`, `POST /api/update/check`. Asks `api.github.com/repos/ferdousmikdad/Homeport/releases/latest` a minute after start and then at most daily (cached in `<data dir>/update.json`); setting `check_updates` (default on). Returns current/latest/available, a plain excerpt of the release notes, the changelog link and how to update for this install (desktop download / install command / `git pull`).
+- UI: sidebar notice "Update available · vX" (Later hides it for that version), update dialog, Settings → General *Check for updates*, Settings → About version + Check now, ⌘K "Check for updates".

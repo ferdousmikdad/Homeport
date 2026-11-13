@@ -179,9 +179,9 @@ def test_pull_reports_ollama_errors(client, monkeypatch):
 
 
 def test_settings_roundtrip_and_validation(client):
-    assert client.get("/api/settings").json() == {"ai_provider": None, "local_model": None, "projects_dir": None}
+    assert client.get("/api/settings").json() == {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None}
     assert client.patch("/api/settings", json={"ai_provider": "local", "local_model": "qwen3:4b"}).json() == \
-        {"ai_provider": "local", "local_model": "qwen3:4b", "projects_dir": None}
+        {"ai_provider": "local", "local_model": "qwen3:4b", "projects_dir": None, "check_updates": None}
     assert client.get("/api/settings").json()["ai_provider"] == "local"
     assert client.patch("/api/settings", json={"ai_provider": "gpt"}).status_code == 400
     assert client.patch("/api/settings", json={"theme": "x"}).status_code == 400

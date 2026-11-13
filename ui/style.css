@@ -1925,3 +1925,17 @@ body.side-hidden .sidebar { display: none; }
 .gh-connect svg { width: 17px; height: 17px; }
 .gh-more { align-self: flex-start; margin: 2px 2px 0; font-size: 12.5px; }
 .set-row-right a.btn { text-decoration: none; }
+
+/* Update notice */
+.side-update { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 12px; border: 1px solid var(--tint-blue-line); border-radius: 999px; background: var(--tint-blue); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.side-update:hover { filter: brightness(0.98); }
+.side-update[hidden] { display: none; }
+.side-update-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 3px color-mix(in srgb, #2563eb 25%, transparent); }
+.upd-dialog { width: min(520px, 100%); }
+.upd-body { display: flex; flex-direction: column; gap: 12px; }
+.upd-versions { margin: 0; font-size: 14px; }
+.upd-notes { margin: 0; max-height: 220px; overflow: auto; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-family: var(--font); font-size: 13px; line-height: 1.5; white-space: pre-wrap; color: var(--text-2); }
+.upd-cmd { display: block; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.upd-body .hint { margin: 0; }
+#upd-action:empty { display: none; }
+.modal-foot a.btn { text-decoration: none; display: inline-flex; align-items: center; }

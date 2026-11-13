@@ -13,6 +13,7 @@ data/services/
 data/feedback/
 data/settings.json
 data/github.json
+data/update.json
 .runtime/
 data/tmp/
 

@@ -48,6 +48,7 @@
     </section>
 
     <div class="side-foot">
+      <button type="button" id="update-note" class="side-update" hidden><span class="side-update-dot" aria-hidden="true"></span><span id="update-note-text">Update available</span></button>
       <button type="button" id="btn-settings" class="side-link side-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span><span id="settings-badge" class="side-badge" hidden></span></button>
       <div class="side-card">
         <span class="side-card-mark"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg></span>
@@ -549,6 +550,20 @@
         <label class="check small"><input type="checkbox" id="gh-start" checked /> Start after adding</label>
         <button type="button" id="gh-cancel" class="btn ghost">Cancel</button>
         <button type="button" id="gh-clone" class="btn primary" disabled>Clone &amp; add</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="upd-backdrop" class="backdrop" hidden>
+    <div class="modal upd-dialog" role="dialog" aria-labelledby="upd-title">
+      <header class="modal-head">
+        <h2 id="upd-title">Update available</h2>
+        <button type="button" id="upd-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div id="upd-body" class="form-body upd-body"></div>
+      <footer class="modal-foot">
+        <button type="button" id="upd-later" class="btn ghost">Later</button>
+        <span id="upd-action"></span>
       </footer>
     </div>
   </div>
