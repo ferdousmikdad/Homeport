@@ -414,7 +414,7 @@ section { padding: 120px 0; }
 
 /* ---------- Hero: centred ---------- */
 .hero > .container > h1, .hero .lead, .hero .dl { text-align: center; }
-.hero .lead { margin-left: auto; margin-right: auto; }
+.hero .lead { margin-left: auto; margin-right: auto; max-width: none; }
 .hero .dl { align-items: center; }
 .hero .dl-other, .hero .term-tabs { justify-content: center; }
 .hero .term-install { text-align: left; }
