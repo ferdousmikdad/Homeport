@@ -16,3 +16,6 @@ data/tmp/
 # desktop builds
 /build/
 /dist/
+
+# marketing banners (local only)
+/banners/
