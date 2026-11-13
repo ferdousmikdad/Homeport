@@ -182,9 +182,12 @@
         <button class="tab" role="tab" aria-selected="true" aria-controls="p-run" id="t-run">Runs anything</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-cmd" id="t-cmd">Command palette</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-share" id="t-share">Safe sharing</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-comments" id="t-comments">Comments</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-github" id="t-github">GitHub</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-phone" id="t-phone">Phone preview</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-fix" id="t-fix">Crash fixer</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-db" id="t-db">Databases</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-ai" id="t-ai">Local AI</button>
       </div>
 
       <div class="panel" role="tabpanel" id="p-run" aria-labelledby="t-run">
@@ -249,6 +252,54 @@
         </div>
       </div>
 
+      <div class="panel" role="tabpanel" id="p-comments" aria-labelledby="t-comments" hidden>
+        <div>
+          <h3>Comments on the live site. Like Figma.</h3>
+          <p>Turn on <strong>visitor feedback</strong> when you share. Anyone with the link presses <kbd>C</kbd>, clicks a spot on the page and leaves a comment — and others can reply. Comments are saved in Homeport, on your computer.</p>
+          <ul>
+            <li>Pins stay on their spot while the page scrolls</li>
+            <li>Threads with replies; you resolve them in your review view</li>
+            <li>See the site with comments — or without</li>
+          </ul>
+        </div>
+        <div class="visual art compact v2">
+          <div class="cm-mock" aria-hidden="true">
+            <div class="cm-page">
+              <div class="cm-bar"></div>
+              <div class="cm-hero"><i></i><i></i><b>Sign up</b></div>
+              <div class="cm-row"><i></i><i></i><i></i></div>
+            </div>
+            <span class="cm-pin" style="left:30%;top:50%">ML</span>
+            <span class="cm-pin b" style="left:14%;top:84%">SL</span>
+            <div class="cm-thread">
+              <div class="cm-msg"><span class="cm-av">ML</span><div><b>Maria <em>2m ago</em></b><p>Can this button be bigger on mobile?</p></div></div>
+              <div class="cm-msg"><span class="cm-av b">SL</span><div><b>Sam <em>just now</em></b><p>Agreed — and higher up.</p></div></div>
+              <div class="cm-reply">Reply<span>↑</span></div>
+            </div>
+            <div class="cm-tools"><span class="on">＋</span><span>2</span><span>◉</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-github" aria-labelledby="t-github" hidden>
+        <div>
+          <h3>From GitHub to running, in one click.</h3>
+          <p><strong>Connect GitHub</strong> once, pick one of your repos, and Homeport clones it, works out how to run it and starts it. Cards show whether the last build passed.</p>
+          <ul>
+            <li>CI result on every card: <code>main ✓</code>, <code>main ✗</code></li>
+            <li>Open on GitHub and pull requests from the card's menu</li>
+            <li>Private repos too — your login stays on your computer</li>
+          </ul>
+        </div>
+        <div class="visual art compact v4">
+          <div class="svc-list">
+            <div class="svc"><div class="logo l2">S</div><div><b>you/storefront</b><span>Next.js · updated 2h ago</span></div><em>Clone &amp; add</em></div>
+            <div class="svc"><div class="logo l5">A</div><div><b>you/shop-api</b><span>Laravel · Private</span></div><em>Clone &amp; add</em></div>
+            <div class="svc"><div class="logo l3">B</div><div><b>Blog</b><span>Running · <span class="ci-ok">main ✓</span> · 2 pull requests</span></div><em>Open</em></div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel" role="tabpanel" id="p-phone" aria-labelledby="t-phone" hidden>
         <div>
           <h3>Open it on your phone. Scan, done.</h3>
@@ -272,7 +323,7 @@
           <p>Homeport reads the log and explains it in plain words — port in use, missing packages, no <code>.env</code>, database down — with one-click fixes. Works offline.</p>
           <ul>
             <li>Install packages, create <code>.env</code>, free a port, add a database</li>
-            <li>Optional AI assistant if you use Claude Code</li>
+            <li>Optional AI: Claude Code, or a free local model that runs offline</li>
           </ul>
         </div>
         <div class="visual art compact v2">
@@ -299,6 +350,26 @@
             <div class="svc"><div class="logo l5">P</div><div><b>PostgreSQL</b><span>postgresql://postgres@127.0.0.1:5433/postgres</span></div><em>Running</em></div>
             <div class="svc"><div class="logo l3">R</div><div><b>Redis</b><span>redis://127.0.0.1:6379</span></div><em>Running</em></div>
             <div class="svc"><div class="logo l6">M</div><div><b>Mailpit</b><span>Inbox at mailpit.localhost:7777</span></div><em>Running</em></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-ai" aria-labelledby="t-ai" hidden>
+        <div>
+          <h3>An AI that fixes apps — on your computer.</h3>
+          <p>Ask why an app crashed, or let it fix it. Use <strong>Claude Code</strong> if you have it, or download a free open model (Qwen, Llama, Gemma) in Settings and run it offline with <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>. Nothing you ask leaves your computer.</p>
+          <ul>
+            <li>Follows step-by-step fix guides for common problems</li>
+            <li>Every change asks you first — Allow or Don't allow</li>
+            <li>Optional: Homeport works the same without it</li>
+          </ul>
+        </div>
+        <div class="visual art compact v3">
+          <div class="diag">
+            <strong>Ask AI · Qwen3 4B · on this computer</strong>
+            <p>“Shop API” crashed: port 8000 is used by an old copy of the app. I'll stop it and start Shop API again.</p>
+            <code>Allow this change? Start “Shop API” and stop the program blocking its port</code>
+            <span class="btn small primary">Allow</span>
           </div>
         </div>
       </div>
@@ -330,7 +401,7 @@
       </div>
       <div class="bento">
         <div class="tile reveal"><div class="illus" data-art="chain"></div><h3>Workspaces</h3><p>Group apps and start them in order, each waiting until the previous one is up.</p><a class="more-link" href="/docs#workspaces">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-        <div class="tile reveal"><div class="illus" data-art="branches"></div><h3>Git on every card</h3><p>Branch, uncommitted changes, commits to pull — and Pull &amp; restart.</p><a class="more-link" href="/docs#git">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+        <div class="tile reveal"><div class="illus" data-art="branches"></div><h3>Git on every card</h3><p>Branch, CI result, commits to pull — and Pull &amp; restart.</p><a class="more-link" href="/docs#git">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="burst"></div><h3>Project discovery</h3><p>Scan a folder and add every project inside in one click.</p><a class="more-link" href="/docs#discover">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="bars"></div><h3>Logs that stay</h3><p>Persistent, searchable logs per app — even after restarts.</p><a class="more-link" href="/docs#logs">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="rings"></div><h3>Auto-restart &amp; autostart</h3><p>Bring crashed apps back, and start Homeport at login on any OS.</p><a class="more-link" href="/docs#autostart">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
@@ -359,6 +430,9 @@
             <tr><td>Public links with password &amp; expiry</td><td class="us"><span class="yes">✓</span> free</td><td>Some, often paid</td><td>Often paid</td><td class="no">—</td></tr>
             <tr><td>Phone preview with QR</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Crash explanations &amp; fixes</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Comments on shared pages</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Clone &amp; run from GitHub</td><td class="us"><span class="yes">✓</span></td><td>Partly</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>AI fixes, with an offline option</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Databases as one-click apps</td><td class="us"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>macOS, Windows &amp; Linux</td><td class="us"><span class="yes">✓</span></td><td>Varies</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
             <tr><td>Open source, no account</td><td class="us"><span class="yes">✓</span></td><td>Varies</td><td>Varies</td><td><span class="yes">✓</span></td></tr>
@@ -407,6 +481,8 @@
         <details><summary>Which systems does it run on?</summary><p>macOS, Windows and Linux. Double-click <code>run.command</code> on macOS, <code>run.bat</code> on Windows, or run <code>./run.sh</code> on Linux.</p></details>
         <details><summary>Can other people on my network control my apps?</summary><p>No. The dashboard only listens on your own computer. Phone preview exposes just the one app you choose, on your local network, until you turn it off.</p></details>
         <details><summary>How do share links stay safe?</summary><p>You can add a password (only a salted hash is kept) and an expiry. Links also close when you stop sharing, stop the app or quit Homeport.</p></details>
+        <details><summary>Who can see comments on a shared link?</summary><p>Anyone with the link sees the open comments, like in a shared Figma file — so only turn feedback on for people who may see each other's notes, and add a password if needed. Comments are stored in Homeport on your computer, and resolved ones are hidden from visitors.</p></details>
+        <details><summary>Do I need a GitHub account or an AI subscription?</summary><p>No. Both are optional. GitHub adds one-click cloning and CI results; your login stays on your computer. The AI can be Claude Code, or a free local model that runs offline with Ollama — nothing you ask leaves your computer.</p></details>
         <details><summary>My framework isn't detected. What now?</summary><p>Type your start command once — Homeport remembers it. Or add a small JSON recipe so it's detected for everyone; see the docs.</p></details>
       </div>
     </div>

@@ -22,7 +22,8 @@ Homeport works with the projects you already have, whatever they're built with.
 | 🏷️ **Named URLs** | Open apps at `http://blog.localhost:7777` instead of remembering ports. No hosts-file edits — every browser resolves `*.localhost` to your computer. Live reload keeps working. |
 | 📱 **Phone preview + QR** | One switch puts an app on your Wi-Fi; scan the QR code to open it on your phone. |
 | 🌍 **Public links, safely** | Share a running app on a free `https://…trycloudflare.com` link (no account). Add a **password** and an **auto-expiry** so nothing stays open by accident. Leftover `localhost` links in pages are fixed on the fly, so any framework works for visitors. |
-| 💬 **Feedback on share links** | Tick **Let visitors leave feedback** when you share: visitors get a Feedback button, click a spot on the page and write a note. Notes are saved in Homeport on your computer. Read them in the app, or open the site with the notes pinned on the pages — or without them. |
+| 💬 **Comments on share links** | Turn on visitor feedback when you share: visitors press **C**, click a spot and comment — like Figma comments, with replies, pins that stay put while scrolling, and a comments panel. Comments are saved in Homeport on your computer; view the site with or without them. |
+| 🐙 **GitHub** | **Connect GitHub** in one click, then **Add from GitHub** clones a repo, works out how to run it and starts it. Cards show CI results (`main ✓`) and link to pull requests. Private repos too; your login stays on your computer. See [`docs/GITHUB.md`](docs/GITHUB.md). |
 | ⌨️ **Command palette** | Press **⌘K / Ctrl+K** and type: “stop api”, “logs blog”, “share portfolio”, “add redis”. Every action, keyboard-first. |
 | 🗄️ **Databases & services** | PostgreSQL, MySQL/MariaDB, Redis, MongoDB and Mailpit as one-click apps — using the server already on your computer, or Docker. Copy the connection URL or ready-made `.env` lines. |
 | 📝 **WordPress mode** | Drop in a WordPress site (even a copy of a live one), click **Set up**: database, `wp-config.php` and a live-URL helper are done for you. Import the `.sql` backup and it works on localhost, phones and share links. |
@@ -32,7 +33,7 @@ Homeport works with the projects you already have, whatever they're built with.
 | 🧩 **Community recipes** | Teach Homeport a new framework with a small JSON file — no code. See [`recipes/`](recipes/README.md). |
 | 🤖 **Optional AI assistant** | A chat panel that diagnoses and fixes apps. Use [Claude Code](https://claude.com/claude-code) if you have it, or a **free local model** (Qwen, Llama, Gemma) through [Ollama](https://ollama.com): offline, nothing leaves your computer, and every change asks you first. Guided by step-by-step fix guides in [`skills/`](skills/README.md). Not required for anything else. |
 
-Plus: live CPU / memory / uptime, persistent logs with search, auto-restart on
+Plus: Settings (theme, defaults, AI models), live CPU / memory / uptime, persistent logs with search, auto-restart on
 crash, start at login, port-conflict detection, drag-and-drop organising,
 categories, light & dark themes.
 

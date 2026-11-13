@@ -79,8 +79,11 @@
     <a href="#workspaces">Workspaces</a>
     <a href="#logs">Logs &amp; restarts</a>
     <a href="#git">Git on cards</a>
+    <a href="#github">GitHub</a>
+    <a href="#settings">Settings</a>
     <h4>Sharing</h4>
     <a href="#share">Public share links</a>
+    <a href="#comments">Comments on shared links</a>
     <a href="#phone">Phone preview</a>
     <h4>When things break</h4>
     <a href="#crash-fixer">Crash fixer</a>
@@ -89,7 +92,7 @@
     <h4>Advanced</h4>
     <a href="#recipes">Recipes</a>
     <a href="#autostart">Start at login</a>
-    <a href="#ai">AI assistant (optional)</a>
+    <a href="#ai">AI assistant &amp; local AI</a>
     <a href="#troubleshooting">Troubleshooting</a>
     <a href="#uninstall">Uninstall</a>
   </nav>
@@ -167,7 +170,33 @@ cd Homeport
     <p>Each app's output is saved to <code>data/logs/</code>, so logs survive restarts. Open them from the card (☰), search, download or clear. In <strong>Edit</strong> you can turn on <em>auto-restart</em> (bring crashed apps back), <em>start with Homeport</em>, and crash notifications.</p>
 
     <h2 id="git">Git on cards</h2>
-    <p>Cards show the branch, uncommitted changes (<code>●2</code>) and commits to pull (<code>↓1</code>). <strong>••</strong> → <strong>Pull &amp; restart</strong> runs <code>git pull --ff-only</code> — it never merges or overwrites your work — and restarts the app if it was running.</p>
+    <p>Cards show the branch, uncommitted changes (<code>●2</code>) and commits to pull (<code>↓1</code>). <strong>••</strong> → <strong>Pull &amp; restart</strong> runs <code>git pull --ff-only</code> — it never merges or overwrites your work — and restarts the app if it was running. With <a href="#github">GitHub connected</a>, the branch also shows the CI result of its latest commit.</p>
+
+    <h2 id="github">GitHub</h2>
+    <p>Optional. Connect once and Homeport can clone your repos and show whether they build.</p>
+    <ol>
+      <li><strong>Settings → GitHub → Connect GitHub.</strong> GitHub opens in your browser and the sign-in code is already copied — paste it, click <strong>Continue</strong> and <strong>Authorize</strong>. If you use GitHub CLI and ran <code>gh auth login</code>, you're connected automatically. (<em>Other ways to connect</em> accepts a personal access token, for GitHub Enterprise or locked-down setups.)</li>
+      <li><strong>Sidebar → Add from GitHub</strong> (or <code>⌘K</code> → “Add from GitHub”). Search your repos — private ones too — or paste any repo link. <strong>Clone &amp; add</strong> clones it into your projects folder, works out how to run it, adds it and starts it.</li>
+    </ol>
+    <ul>
+      <li><strong>CI on cards:</strong> the branch shows <code>main ✓</code> (passed), <code>main ✗</code> (failed) or <code>main ●</code> (running). Click it to open the run on GitHub.</li>
+      <li><strong>••</strong> → <strong>Open on GitHub</strong> and <strong>Pull requests (N)</strong>.</li>
+      <li><strong>Pull &amp; restart</strong> works for private repos too.</li>
+      <li>The projects folder is in Settings → GitHub (default <code>~/Projects</code>, or <code>~/Developer</code> / <code>~/Code</code> if you have one). Homeport never clones into a folder that already has files.</li>
+    </ul>
+    <div class="note">Homeport only talks to GitHub. Your login is stored on your computer (readable only by you), never shown or sent anywhere else. Homeport never pushes or deletes anything on GitHub. <strong>Disconnect</strong> removes it; you can also revoke Homeport in GitHub → Settings → Applications.</div>
+
+    <h2 id="settings">Settings</h2>
+    <p>Sidebar → <strong>Settings</strong> (bottom left).</p>
+    <table>
+      <tr><th>Section</th><th>What's there</th></tr>
+      <tr><td>General</td><td>Theme (System / Light / Dark), open apps in the browser when they start, keyboard shortcuts</td></tr>
+      <tr><td>AI assistant</td><td>Claude Code or a local model, default mode (Act / Ask only), which model</td></tr>
+      <tr><td>Local AI · Models</td><td>Ollama status, download / use / remove models, memory and disk space</td></tr>
+      <tr><td>GitHub</td><td>Connect, projects folder for cloning</td></tr>
+      <tr><td>Sharing &amp; feedback</td><td>Default link expiry, feedback on by default, your name on replies</td></tr>
+      <tr><td>Fix guides · About</td><td>The guides the local AI follows; Homeport's address, data folder, links</td></tr>
+    </table>
 
     <h2 id="share">Public share links</h2>
     <p>Start an app, click <strong>🌐 Share</strong>, then <strong>Start sharing</strong>. You get a public <code>https://…trycloudflare.com</code> link within seconds — through Cloudflare's free, account-less Quick Tunnels.</p>
@@ -176,8 +205,19 @@ cd Homeport
       <li><strong>Expiry</strong>: 15 minutes to 24 hours, or never. The link also stops when you stop the app or quit Homeport.</li>
       <li><strong>Works with any framework</strong>: visitors' requests carry the public address (<code>X-Forwarded-Host</code>/<code>Proto</code>), and leftover <code>http://localhost:PORT</code> links in pages, CSS, JavaScript and redirects are swapped for the public address.</li>
       <li>The first time, the dialog offers to install Cloudflare's open-source <code>cloudflared</code> (about 40 MB) into <code>bin/</code>.</li>
+      <li>On the card, sharing is one line — <strong>Shared · 58m left</strong> with <strong>Copy</strong>. Click the line for the full link, the QR code, visitor feedback on/off and <strong>Stop sharing</strong>.</li>
     </ul>
     <div class="note">Your computer must stay on and awake while the link is in use. Quick-tunnel addresses change each time you share.</div>
+
+    <h2 id="comments">Comments on shared links</h2>
+    <p>Tick <strong>Let visitors leave feedback</strong> when you share (or turn it on later from the card's share line — the link stays the same). Visitors then see a small toolbar at the bottom of every page — it works like comments in Figma:</p>
+    <ul>
+      <li>Press <kbd>C</kbd> (or the comment tool) and click anywhere to leave a comment on that spot, or write a general comment. Their name is asked once.</li>
+      <li>Comments show as avatar pins that stay on their spot while the page scrolls. Hover for a preview, click to open the thread and <strong>Reply</strong>.</li>
+      <li>The comments panel lists everything on the page; the eye button hides or shows the pins.</li>
+    </ul>
+    <p>In Homeport, the card shows the number of open comments. Click it (or <strong>••</strong> → <strong>Feedback…</strong>) to read them, reply, resolve or delete — or open your site <strong>with feedback</strong> (pins, resolve buttons) or <strong>without</strong>.</p>
+    <div class="note">Anyone with the link sees the open comments and the names people typed, like in a shared Figma file. Resolved comments are hidden from visitors. Comments are stored only in Homeport's data folder. Add a password to the link if the feedback should stay within a small group.</div>
 
     <h2 id="phone">Phone preview</h2>
     <p><strong>••</strong> → <strong>Open on phone…</strong> → <strong>Turn on</strong>. Scan the QR code with your phone's camera — the app opens on any device on the same Wi-Fi. Only that app is exposed, only until you turn it off or the app stops. The first time, your computer may ask to allow incoming connections.</p>
@@ -234,8 +274,13 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:5433/postgres</code></pre>
       <tr><td>Linux</td><td><code>scripts/install_autostart_linux.sh</code></td><td><code>scripts/uninstall_autostart_linux.sh</code></td></tr>
     </table>
 
-    <h2 id="ai">AI assistant (optional)</h2>
-    <p>If you already use <a href="https://claude.com/claude-code">Claude Code</a>, a chat bubble appears in the corner (<code>⌘J</code> / <code>Ctrl J</code>) that can diagnose and fix apps. Without it, the bubble stays hidden and everything else works the same.</p>
+    <h2 id="ai">AI assistant &amp; local AI</h2>
+    <p><strong>Ask AI</strong> (<code>⌘J</code> / <code>Ctrl J</code>, or <strong>Ask AI to fix</strong> on a crashed app) can explain problems and fix them. Choose the assistant in Settings → AI assistant:</p>
+    <ul>
+      <li><strong>Claude Code</strong> — the most capable, if you already use <a href="https://claude.com/claude-code">Claude Code</a>. It uses your Claude account.</li>
+      <li><strong>Local model</strong> — free and offline. Install <a href="https://ollama.com">Ollama</a>, then Settings → <strong>Models</strong> → download one (Qwen3 4B, about 2.5 GB, is a good start). Nothing you ask leaves your computer, and the model is unloaded from memory a few minutes after it answers.</li>
+    </ul>
+    <p>The local model follows short <strong>fix guides</strong> for common problems (port in use, missing packages, <code>.env</code>, database down, …) — add your own as Markdown files in <code>skills/</code>. It can read logs and files in the app's folder and run Homeport's predefined fixes; <strong>every change asks you first</strong> (<em>Allow</em> / <em>Don't allow</em>), and it has no shell access. <strong>Ask only</strong> mode just looks and explains.</p>
 
     <h2 id="troubleshooting">Troubleshooting</h2>
     <h3>The page looks broken after an update</h3>

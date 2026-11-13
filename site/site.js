@@ -104,13 +104,14 @@
     const smart = document.querySelectorAll("[data-dl-smart]");
     if (files[os]) {
       const href = base + files[os].file;
-      primary.href = href;
-      label.textContent = files[os].label;
+      // the big download button is only on the home page
+      if (primary) primary.href = href;
+      if (label) label.textContent = files[os].label;
       smart.forEach((a) => { a.href = href; a.textContent = files[os].label; });
       document.querySelectorAll('.dl-other a[data-os="' + os + '"]').forEach((a) => a.classList.add("current"));
     } else if (os === "mobile") {
-      label.textContent = "View on GitHub";
-      primary.href = "https://github.com/ferdousmikdad/Homeport";
+      if (label) label.textContent = "View on GitHub";
+      if (primary) primary.href = "https://github.com/ferdousmikdad/Homeport";
       if (sub) sub.textContent = "Homeport runs on your computer — open this page on macOS, Windows or Linux to download.";
     }
     // Terminal tab follows the OS
