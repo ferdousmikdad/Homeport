@@ -23,4 +23,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest-timeout
       - name: Test
-        run: python -m pytest -q --timeout 120
+        run: python -m pytest -q --timeout 120 -rf --junitxml=junit.xml
+      # Show each failed test (name + error) as an annotation on the run, so it
+      # can be read from the run page and the API without opening the raw log.
+      - name: Report failed tests
+        if: failure()
+        shell: python
+        run: |
+          import os, xml.etree.ElementTree as ET
+          if not os.path.exists("junit.xml"):
+              raise SystemExit(0)
+          for case in ET.parse("junit.xml").iter("testcase"):
+              for tag in ("failure", "error"):
+                  el = case.find(tag)
+                  if el is None:
+                      continue
+                  text = ((el.get("message") or "") + "\n" + (el.text or ""))[-1800:]
+                  text = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+                  print(f"::error title={tag}: {case.get('classname')}.{case.get('name')}::{text}")
