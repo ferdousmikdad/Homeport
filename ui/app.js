@@ -12,6 +12,7 @@
   const API_BASE = (params.get("api") || "").replace(/\/+$/, "");
 
   const ICONS = {
+    comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 4a8 8 0 0 1 0 16H4v-8a8 8 0 0 1 8-8z"/></svg>',
     settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
     grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
     more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
@@ -294,6 +295,14 @@
 
   function isActive(app) {
     return app.status === "running" || app.status === "starting";
+  }
+
+  function shortUptime(app) {
+    const secs = typeof app.started_at === "number" ? Date.now() / 1000 - app.started_at : app.uptime_s || 0;
+    if (secs < 60) return "just started";
+    if (secs < 3600) return Math.floor(secs / 60) + "m";
+    if (secs < 86400) return Math.floor(secs / 3600) + "h " + Math.floor((secs % 3600) / 60) + "m";
+    return Math.floor(secs / 86400) + "d";
   }
 
   function formatUptime(app) {
@@ -610,7 +619,9 @@
     const titleRow = el("div", "card-title-row");
     const name = el("h2", "card-name");
     titleRow.appendChild(name);
-    const fbChip = button("fb-chip", "");
+    const fbChip = icon(button("fb-chip", null), "comment");
+    const fbCount = el("span", null, "");
+    fbChip.appendChild(fbCount);
     fbChip.hidden = true;
     fbChip.title = "Open feedback from visitors";
     titleRow.appendChild(fbChip);
@@ -623,11 +634,13 @@
     const portLink = el("a", "port-link");
     portLink.target = "_blank";
     portLink.rel = "noopener noreferrer";
-    const portNone = el("span", "muted", "No port");
+    const portNone = el("span", "muted port-none", "No port");
+    const upChip = el("span", "up-chip");
     const health = el("span", "health");
     const gitChip = el("span", "git-chip");
     const category = button("tag category", null); // kept for updateCard; shown via sidebar
     subtitle.appendChild(status);
+    subtitle.appendChild(upChip);
     subtitle.appendChild(tech);
     subtitle.appendChild(portLink);
     subtitle.appendChild(portNone);
@@ -641,6 +654,17 @@
     head.appendChild(handle);
     head.appendChild(logo);
     head.appendChild(titles);
+
+    // The app's own address, on one clear line (grid view)
+    const cardLink = icon(el("a", "card-link"), "open");
+    cardLink.target = "_blank";
+    cardLink.rel = "noopener noreferrer";
+    const cardLinkText = el("span", null, "");
+    cardLink.appendChild(cardLinkText);
+    cardLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      openInBrowser(id);
+    });
 
     // Alert: crash reason or port conflict
     const alert = el("div", "card-alert");
@@ -662,28 +686,44 @@
       if (cur) openWordPress(cur);
     });
 
-    // Public share link
-    const shareBar = el("div", "share-bar");
+    // Public share link: one quiet line; the full link, QR, feedback and stop are in its menu
+    const shareBar = el("div", "share-bar menu-wrap");
+    const shareMain = button("share-main", null, "Sharing options");
+    shareMain.setAttribute("aria-haspopup", "menu");
+    shareMain.setAttribute("aria-expanded", "false");
     const shareDot = el("span", "share-dot");
     const shareText = el("span", "share-text");
     const shareLink = el("a", "share-link");
     shareLink.target = "_blank";
     shareLink.rel = "noopener noreferrer";
     const shareMeta = el("span", "share-meta");
-    const shareFb = button("btn small ghost share-fb-btn", "Feedback");
+    const shareMenu = el("div", "menu share-menu");
+    shareMenu.setAttribute("role", "menu");
+    shareMenu.hidden = true;
+    const shareFb = button("share-fb-btn", "Visitor feedback");
+    shareFb.setAttribute("role", "menuitemcheckbox");
     shareFb.title = "Let visitors leave feedback on the pages (same link)";
-    const shareQr = button("btn small ghost", "QR");
-    shareQr.title = "Show a QR code to open it on a phone";
-    const shareCopy = button("btn small ghost", "Copy");
-    const shareStop = button("btn small ghost", "Stop");
-    shareBar.appendChild(shareDot);
-    shareBar.appendChild(shareText);
-    shareBar.appendChild(shareLink);
-    shareBar.appendChild(shareMeta);
-    shareBar.appendChild(shareFb);
-    shareBar.appendChild(shareQr);
-    shareBar.appendChild(shareCopy);
-    shareBar.appendChild(shareStop);
+    const shareFbState = el("span", "menu-state", "");
+    shareFb.appendChild(shareFbState);
+    const shareQr = button(null, "Show QR code");
+    shareQr.setAttribute("role", "menuitem");
+    const shareOpenFb = button(null, "View feedback…");
+    shareOpenFb.setAttribute("role", "menuitem");
+    const shareStop = button("danger", "Stop sharing");
+    shareStop.setAttribute("role", "menuitem");
+    const shareCopy = button("btn small ghost share-copy", "Copy");
+    shareCopy.title = "Copy the public link";
+    shareMain.append(shareDot, shareText, shareMeta);
+    shareMenu.append(shareLink, el("hr"), shareFb, shareOpenFb, shareQr, el("hr"), shareStop);
+    shareBar.append(shareMain, shareCopy, shareMenu);
+    shareMain.addEventListener("click", () => toggleMenu(shareMain, shareMenu));
+    shareMenu.addEventListener("click", (e) => {
+      if (e.target.closest("button, a")) closeMenus();
+    });
+    shareOpenFb.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur) openFeedback(cur);
+    });
 
     // Stats
     const stats = el("div", "stats");
@@ -695,6 +735,15 @@
 
     // Actions: round icon buttons, primary Start/Stop in black
     const actions = el("div", "card-actions");
+    const openBtn = button("pill-btn primary", null, "Open");
+    icon(openBtn, "open");
+    openBtn.appendChild(el("span", null, "Open"));
+    openBtn.title = "Open in your browser";
+    openBtn.addEventListener("click", () => openInBrowser(id));
+    const startBtn = button("pill-btn primary", null, "Start");
+    icon(startBtn, "play");
+    startBtn.appendChild(el("span", null, "Start"));
+    startBtn.addEventListener("click", () => runAction(id, "start"));
     const toggleBtn = icon(button("round-btn primary-round", null, "Start"), "play");
     const logsBtn = icon(button("round-btn", null, "Logs"), "logs");
     logsBtn.title = "Logs";
@@ -744,6 +793,8 @@
     });
     const miConnUrl = mi("Copy connection URL");
     const miConnEnv = mi("Copy .env settings");
+    const miGitHub = mi("Open on GitHub");
+    const miPRs = mi("Pull requests");
     const miPull = mi("Pull & restart");
     miPull.title = "git pull --ff-only, then restart if it's running";
     const miFinder = mi(FOLDER_LABEL[serverPlatform] || "Open folder");
@@ -761,6 +812,8 @@
     actions.appendChild(shareBtn);
     actions.appendChild(logsBtn);
     actions.appendChild(toggleBtn);
+    actions.appendChild(startBtn);
+    actions.appendChild(openBtn);
 
     // Bottom: summary (description, live stats) + action buttons
     const summary = el("div", "card-summary");
@@ -771,6 +824,7 @@
     bottom.appendChild(actions);
 
     card.appendChild(head);
+    card.appendChild(cardLink);
     card.appendChild(wpBar);
     card.appendChild(shareBar);
     card.appendChild(alert);
@@ -833,6 +887,20 @@
       if (cur) openEditModal(cur);
     });
     miBrowser.addEventListener("click", () => openInBrowser(id));
+    miGitHub.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur && cur.github) window.open(cur.github.url, "_blank", "noopener");
+    });
+    miPRs.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur && cur.github) window.open(cur.github.url + "/pulls", "_blank", "noopener");
+    });
+    gitChip.addEventListener("click", (e) => {
+      const cur = findApp(id);
+      if (!cur || !cur.github || !cur.github.ci_url) return;
+      e.stopPropagation();
+      window.open(cur.github.ci_url, "_blank", "noopener");
+    });
     miConnUrl.addEventListener("click", () => {
       const cur = findApp(id);
       if (cur && cur.service) copyText(cur.service.url);
@@ -902,7 +970,8 @@
       el: card,
       logo, logoKey: null, stats,
       shareBar, shareText, shareLink, shareBtn, shareMeta, gitChip, whyBtn, miPhone, miPull, miConnUrl, miConnEnv,
-      shareFb, fbChip, miFeedback,
+      miGitHub, miPRs,
+      shareFb, shareFbState, fbChip, fbCount, miFeedback, cardLink, cardLinkText, upChip, openBtn, startBtn, shareMain,
       wpBar, miWp,
       name, path, desc, status, statusText,
       portLink, portNone, health, tech, category,
@@ -946,9 +1015,14 @@
       v.portNone.hidden = false;
     }
     v.miBrowser.disabled = port === null && !app.command;
+    v.cardLink.hidden = !(port !== null && isActive(app));
+    v.cardLinkText.textContent = app.id + ".localhost";
+    v.cardLink.href = namedUrl(app);
+    v.cardLink.title = "Open " + namedUrl(app) + " (also at localhost:" + port + ")";
+    v.name.title = app.name + "\n" + app.path;
     const fbOpen = app.feedback_open || 0;
     v.fbChip.hidden = !fbOpen;
-    v.fbChip.textContent = "💬 " + fbOpen;
+    v.fbCount.textContent = String(fbOpen);
     v.fbChip.setAttribute("aria-label", fbOpen + " open feedback");
     v.miFeedback.textContent = fbOpen ? "Feedback… (" + fbOpen + " open)" : "Feedback…";
 
@@ -1002,6 +1076,16 @@
       v.gitChip.classList.toggle("dirty", Boolean(git.dirty));
     }
     v.miPull.hidden = !git;
+    const ghs = app.github;
+    v.miGitHub.hidden = !ghs;
+    v.miPRs.hidden = !ghs || ghs.prs === null || ghs.prs === undefined;
+    if (ghs && typeof ghs.prs === "number") v.miPRs.textContent = "Pull requests (" + ghs.prs + (ghs.prs >= 100 ? "+" : "") + ")";
+    const ci = ghs && ghs.ci;
+    v.gitChip.dataset.ci = ci || "";
+    if (ci && git && git.branch) {
+      v.gitChip.textContent += { success: " ✓", failure: " ✗", pending: " ●" }[ci] || "";
+      v.gitChip.title += " · CI " + { success: "passed", failure: "failed", pending: "running" }[ci] + " — click to open";
+    }
     v.miConnUrl.hidden = v.miConnEnv.hidden = !app.service;
     v.miWp.hidden = !app.wordpress;
     v.wpBar.hidden = !(app.wordpress && app.wordpress.needs_setup) || status === "crashed";
@@ -1010,17 +1094,17 @@
     const share = app.share;
     v.shareBar.hidden = !share;
     if (share) {
-      v.shareBar.className = "share-bar " + share.status;
+      v.shareBar.className = "share-bar menu-wrap " + share.status; // keep menu-wrap: clicks inside don't close its menu
       const bits = [];
-      if (share.protected) bits.push("🔒");
+      if (share.protected) bits.push("password");
       if (share.expires_at) bits.push(timeLeft(share.expires_at) + " left");
       v.shareMeta.textContent = bits.join(" · ");
       v.shareMeta.hidden = !bits.length;
-      v.shareFb.textContent = share.feedback ? "Feedback on" : "Feedback off";
+      v.shareFbState.textContent = share.feedback ? "On" : "Off";
       v.shareFb.classList.toggle("on", Boolean(share.feedback));
-      v.shareFb.setAttribute("aria-pressed", String(Boolean(share.feedback)));
+      v.shareFb.setAttribute("aria-checked", String(Boolean(share.feedback)));
       if (share.status === "live" && share.url) {
-        v.shareText.textContent = "Public";
+        v.shareText.textContent = "Shared";
         v.shareLink.textContent = share.url.replace(/^https:\/\//, "");
         v.shareLink.href = share.url;
         v.shareLink.hidden = false;
@@ -1039,6 +1123,12 @@
     v.shareBtn.title = isActive(app) ? "Share a public link to this app" : "Start the app to share it";
 
     v.stats.hidden = !isActive(app);
+    // short uptime in the subtitle; the full numbers are in the status tooltip (and the list view)
+    v.upChip.hidden = !isActive(app) || !(app.started_at || app.uptime_s);
+    v.upChip.textContent = shortUptime(app);
+    v.status.title = isActive(app)
+      ? "Up " + formatUptime(app) + " · CPU " + formatCpu(app) + " · Memory " + formatMem(app) + " · Restarts " + (app.restarts || 0)
+      : "";
     v.uptime.textContent = formatUptime(app);
     v.cpu.textContent = formatCpu(app);
     v.mem.textContent = formatMem(app);
@@ -1050,6 +1140,12 @@
       icon(v.toggleBtn, active ? "stop" : "play");
     }
     v.toggleBtn.className = "round-btn primary-round" + (active ? " is-stop" : "");
+    // grid view: a clear Start (stopped) or Open (running) button; the round one stops
+    v.startBtn.hidden = active;
+    v.startBtn.disabled = !app.command;
+    v.startBtn.title = app.command ? "Start " + app.name : "Set a command first (Edit…)";
+    v.openBtn.hidden = !active;
+    v.el.classList.toggle("is-active", active);
     v.toggleBtn.disabled = !active && !app.command;
     v.toggleBtn.setAttribute("aria-label", (active ? "Stop " : "Start ") + app.name);
     v.toggleBtn.title = !active && !app.command ? "Set a command first (Edit…)" : active ? "Stop" : "Start";
@@ -1078,6 +1174,7 @@
   const pendingOpen = new Map(); // id -> give-up time
 
   function watchToOpen(app) {
+    if (loadPref("auto_open", "1") !== "1") return; // Settings → General
     if (!app || app.service || !(app.port || app.detected_port || app.command)) return;
     pendingOpen.set(app.id, Date.now() + 3 * 60 * 1000);
   }
@@ -1844,6 +1941,7 @@
     els.shareTitle.textContent = "Share “" + app.name + "”";
     els.sharePassword.value = "";
     els.shareFeedback.checked = loadPref("share_feedback", "0") === "1";
+    els.shareExpiry.value = loadPref("share_expiry", "60"); // Settings → Sharing & feedback
     els.shareBackdrop.hidden = false;
     try {
       share.status = await request("/api/share/status");
@@ -1978,6 +2076,40 @@
     if (!item.selector && item.xp == null) meta.appendChild(el("span", null, "general note"));
     if (item.source === "local") meta.appendChild(el("span", null, "added by you"));
     row.appendChild(meta);
+
+    // the thread: replies from visitors and from you
+    (item.replies || []).forEach((r) => {
+      const line = el("div", "fb-reply");
+      line.appendChild(el("b", null, (r.name || "Anonymous") + (r.source === "local" ? " (you)" : "")));
+      line.appendChild(el("span", "fb-reply-time", timeAgo(r.created_at || 0)));
+      line.appendChild(el("p", null, r.message));
+      row.appendChild(line);
+    });
+    const replyForm = el("form", "fb-reply-form");
+    const replyInput = el("input", "input small");
+    replyInput.placeholder = "Reply…";
+    replyInput.maxLength = 2000;
+    const replyBtn = button("btn small", "Reply");
+    replyBtn.type = "submit";
+    replyForm.append(replyInput, replyBtn);
+    replyForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = replyInput.value.trim();
+      if (!message) return;
+      replyBtn.disabled = true;
+      try {
+        const reply = await request("/api/apps/" + encodeURIComponent(app.id) + "/feedback/" + item.id + "/reply", {
+          method: "POST",
+          body: JSON.stringify({ message: message, name: loadPref("fb_owner_name", "") || "Owner" }),
+        });
+        item.replies = (item.replies || []).concat([reply]);
+        renderFeedback();
+      } catch (err) {
+        toast(err.message, "err");
+        replyBtn.disabled = false;
+      }
+    });
+    row.appendChild(replyForm);
 
     const actions = el("div", "fb-actions");
     const show = button("btn small", "Show on page");
@@ -3117,12 +3249,27 @@
     icon(els.btnTheme, effectiveTheme() === "dark" ? "sun" : "moon");
   }
 
-  els.btnTheme.addEventListener("click", () => {
-    const next = effectiveTheme() === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    savePref("theme", next);
+  // "system" follows the computer's light/dark setting.
+  function setThemeMode(mode) {
+    if (mode === "light" || mode === "dark") {
+      document.documentElement.setAttribute("data-theme", mode);
+      savePref("theme", mode);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      try {
+        localStorage.removeItem("lm_theme");
+      } catch (e) {
+        /* ignore */
+      }
+    }
     renderThemeButton();
-  });
+  }
+
+  els.btnTheme.addEventListener("click", () => setThemeMode(effectiveTheme() === "dark" ? "light" : "dark"));
+  if (window.matchMedia) {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", renderThemeButton);
+  }
   renderThemeButton();
 
   /* ------------------------------------------------------------------ */
@@ -3383,8 +3530,9 @@
     const act = (title, iconName, run, keywords) => add({ kind: "action", title: title, icon: iconName, run: run, keywords: keywords || "" });
     act("Add app", "plus", () => openAddModal(), "new project create");
     act("Discover projects", "discover", () => openDiscover(), "scan folder import find");
+    act("Add from GitHub…", "discover", () => openGitHub(), "clone repo repository git github");
     act("Databases & services…", "layers", () => openServices(), "postgres mysql mariadb redis mongodb mailpit database");
-    act("Settings…", "settings", () => openSettings(), "preferences ai model ollama local qwen llama download");
+    act("Settings…", "settings", () => openSettings(), "preferences theme dark light ai model ollama local qwen llama download shortcuts");
     for (const [kind, label] of [["postgres", "PostgreSQL"], ["mysql", "MySQL / MariaDB"], ["redis", "Redis"], ["mongodb", "MongoDB"], ["mailpit", "Mailpit (email testing)"]]) {
       act("Add " + label, "plus", () => addService(kind), "database service");
     }
@@ -3562,6 +3710,7 @@
       else if (!$("svc-backdrop").hidden) hideServices();
       else if (!$("settings-backdrop").hidden) hideSettings();
       else if (!$("fb-backdrop").hidden) hideFeedback();
+      else if (!$("gh-backdrop").hidden) hideGitHub();
       else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
@@ -3941,16 +4090,159 @@
     else text = "Download a model in Settings to start. Qwen3 4B (about 2.5 GB) is a good first choice.";
     box.appendChild(el("p", "muted", text));
     const open = button("btn small primary", "Open Settings");
-    open.addEventListener("click", () => openSettings());
+    open.addEventListener("click", () => openSettings(st.running ? "models" : "local"));
     box.appendChild(open);
     ai.log.appendChild(box);
   }
 
   /* ------------------------------------------------------------------ */
+  /* Add from GitHub: pick one of your repos (or paste a link), clone, run */
+  /* ------------------------------------------------------------------ */
+
+  const GH_MARK = "M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z";
+  const gh = { status: null, repos: [], selected: null, loading: false, busy: false, timer: null };
+  const GH_LINK = /^(?:https?:\/\/github\.com\/|git@github\.com:)?[A-Za-z0-9-]+\/[A-Za-z0-9._-]+?(?:\.git)?\/?$/;
+
+  function ghTimeAgo(iso) {
+    const t = Date.parse(iso || "");
+    return isNaN(t) ? "" : timeAgo(t / 1000);
+  }
+
+  function ghPastedRepo() {
+    const q = $("gh-q").value.trim();
+    return /github\.com|\//.test(q) && GH_LINK.test(q) ? q.replace(/^https?:\/\/github\.com\//, "").replace(/\.git\/?$|\/$/g, "") : null;
+  }
+
+  function renderGitHub() {
+    const body = $("gh-body");
+    body.textContent = "";
+    const st = gh.status;
+    const pasted = ghPastedRepo();
+    if (pasted) gh.selected = { full_name: pasted, name: pasted.split("/")[1], description: "" };
+    if (!st) {
+      body.appendChild(el("p", "hint", "Checking GitHub…"));
+    } else if (!st.connected && !pasted) {
+      const box = el("div", "gh-empty");
+      box.appendChild(el("b", null, "Connect GitHub to see your repos"));
+      box.appendChild(el("p", "hint", "Or paste a link to any public repo above, like github.com/owner/name."));
+      const go = button("btn small primary", "Connect GitHub");
+      go.addEventListener("click", () => { hideGitHub(); openSettings("github"); });
+      box.appendChild(go);
+      body.appendChild(box);
+    } else if (pasted) {
+      body.appendChild(ghRow({ full_name: pasted, name: pasted.split("/")[1], description: "From the link you pasted" }, true));
+    } else if (gh.loading) {
+      body.appendChild(el("p", "hint", "Loading your repos…"));
+    } else {
+      const q = $("gh-q").value.trim().toLowerCase();
+      const list = gh.repos.filter((r) => !q || r.full_name.toLowerCase().includes(q) || (r.description || "").toLowerCase().includes(q));
+      if (!list.length) body.appendChild(el("p", "hint", q ? "No repo matches “" + q + "”." : "No repos found on this account."));
+      list.slice(0, 200).forEach((r) => body.appendChild(ghRow(r, gh.selected && gh.selected.full_name === r.full_name)));
+    }
+    const sel = gh.selected;
+    const dir = st ? st.projects_dir : "";
+    $("gh-where").textContent = sel ? "Clones into " + dir.replace(/\/+$/, "") + "/" + sel.name : st ? "Repos are cloned into " + dir : "";
+    $("gh-where").title = $("gh-where").textContent;
+    $("gh-clone").disabled = !sel || gh.busy;
+  }
+
+  function ghRow(r, selected) {
+    const row = button("gh-row" + (selected ? " selected" : ""));
+    row.setAttribute("aria-pressed", String(!!selected));
+    const top = el("div", "gh-row-top");
+    top.appendChild(el("b", null, r.full_name));
+    if (r.private) top.appendChild(el("span", "set-tag", "Private"));
+    if (r.archived) top.appendChild(el("span", "set-tag", "Archived"));
+    row.appendChild(top);
+    if (r.description) row.appendChild(el("span", "gh-row-desc", r.description));
+    const meta = [r.language, r.updated_at ? "updated " + ghTimeAgo(r.updated_at) : ""].filter(Boolean).join(" · ");
+    if (meta) row.appendChild(el("span", "gh-row-meta", meta));
+    row.addEventListener("click", () => {
+      gh.selected = r;
+      renderGitHub();
+    });
+    row.addEventListener("dblclick", () => {
+      gh.selected = r;
+      cloneFromGitHub();
+    });
+    return row;
+  }
+
+  async function openGitHub() {
+    gh.selected = null;
+    gh.busy = false;
+    $("gh-q").value = "";
+    $("gh-backdrop").hidden = false;
+    $("gh-q").focus();
+    renderGitHub();
+    try {
+      gh.status = await request("/api/github/status");
+    } catch (err) {
+      gh.status = { connected: false, projects_dir: "" };
+    }
+    renderGitHub();
+    if (gh.status.connected) {
+      gh.loading = true;
+      renderGitHub();
+      try {
+        gh.repos = (await request("/api/github/repos")).repos || [];
+      } catch (err) {
+        toast("Couldn't load your repos: " + err.message, "err");
+      }
+      gh.loading = false;
+      renderGitHub();
+    }
+  }
+
+  function hideGitHub() {
+    $("gh-backdrop").hidden = true;
+  }
+
+  async function cloneFromGitHub() {
+    const sel = gh.selected;
+    if (!sel || gh.busy) return;
+    gh.busy = true;
+    const btn = $("gh-clone");
+    btn.disabled = true;
+    btn.textContent = "Cloning…";
+    try {
+      const res = await request("/api/github/clone", {
+        method: "POST",
+        body: JSON.stringify({ repo: sel.full_name, start: $("gh-start").checked, description: sel.description || "" }),
+      });
+      hideGitHub();
+      toast("Added " + res.app.name + (res.app.status === "running" || res.app.status === "starting" ? " — starting it" : ""), "ok");
+      if (res.app.status === "running" || res.app.status === "starting") watchToOpen(res.app);
+      fetchApps();
+    } catch (err) {
+      toast("Couldn't add it: " + err.message, "err");
+    } finally {
+      gh.busy = false;
+      btn.textContent = "Clone & add";
+      renderGitHub();
+    }
+  }
+
+  $("btn-github").addEventListener("click", openGitHub);
+  $("gh-close").addEventListener("click", hideGitHub);
+  $("gh-cancel").addEventListener("click", hideGitHub);
+  $("gh-clone").addEventListener("click", cloneFromGitHub);
+  $("gh-q").addEventListener("input", () => {
+    if (!ghPastedRepo() && gh.selected && !gh.repos.includes(gh.selected)) gh.selected = null;
+    renderGitHub();
+  });
+  $("gh-q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && gh.selected) cloneFromGitHub();
+  });
+  $("gh-backdrop").addEventListener("mousedown", (e) => {
+    if (e.target === $("gh-backdrop")) hideGitHub();
+  });
+
+  /* ------------------------------------------------------------------ */
   /* Settings: AI assistant, Ollama, models, fix guides                  */
   /* ------------------------------------------------------------------ */
 
-  const settings = { open: false, st: null, prefs: { ai_provider: null, local_model: null }, claude: null };
+  const settings = { open: false, st: null, prefs: { ai_provider: null, local_model: null }, claude: null, about: null, github: null, section: "general" };
 
   async function saveSetting(changes) {
     try {
@@ -3961,66 +4253,223 @@
     return settings.prefs;
   }
 
-  function settingsSection(title, hint) {
-    const sec = el("section", "set-section");
-    sec.appendChild(el("h3", null, title));
-    if (hint) sec.appendChild(el("p", "hint", hint));
-    return sec;
+  /* ---------- building blocks (same look as the rest of the app) ---------- */
+
+  // Line icons in the app's style (24px grid, 1.8 stroke).
+  const SET_ICONS = {
+    general: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    ai: '<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+    local: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/><path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3"/>',
+    models: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+    github: '<circle cx="6.5" cy="5.5" r="2"/><circle cx="6.5" cy="18.5" r="2"/><circle cx="17.5" cy="7.5" r="2"/><path d="M6.5 7.5v9M17.5 9.5c0 4-5 3.5-9.5 7.5"/>',
+    sharing: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5S9.7 5.9 12 3.5z"/>',
+    guides: '<path d="M5 4.5h9.5a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h9.5M9 8.5h5"/>',
+    about: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/>',
+  };
+
+  const SETTINGS_SECTIONS = [
+    { id: "general", title: "General", icon: "general", hint: "How Homeport looks and behaves." },
+    { id: "ai", title: "AI assistant", icon: "ai", hint: "Used by Ask AI (⌘J) and “Ask AI to fix” on crashed apps. It only runs when you send a message." },
+    { id: "local", title: "Local AI", icon: "local", hint: "Run a free, open AI model on this computer with Ollama. Nothing you ask leaves it." },
+    { id: "models", title: "Models", icon: "models", hint: "Download one model to start. Bigger models give better answers but are slower and need more memory." },
+    { id: "github", title: "GitHub", icon: "github", hint: "Clone your repos in one click and see CI results and pull requests on your apps. Homeport only talks to GitHub, and your login stays on this computer." },
+    { id: "sharing", title: "Sharing & feedback", icon: "sharing", hint: "Defaults for public links, and how you appear in feedback threads." },
+    { id: "guides", title: "Fix guides", icon: "guides", hint: "Step-by-step guides the local model follows for common problems. The right one is picked automatically." },
+    { id: "about", title: "About", icon: "about", hint: "The home for every local project you run. Free and open source." },
+  ];
+
+  function setIcon(name) {
+    const span = el("span", "nav-ico");
+    span.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + SET_ICONS[name] + "</svg>"; // static markup
+    return span;
+  }
+
+  function setGroup(title, footnote) {
+    const wrap = el("div", "set-block");
+    if (title) wrap.appendChild(el("h4", "set-block-title", title));
+    const group = el("div", "set-group");
+    wrap.appendChild(group);
+    if (footnote) wrap.appendChild(el("p", "hint set-foot", footnote));
+    return { wrap, group };
+  }
+
+  // One row: label (+ optional sub line) on the left, controls on the right.
+  function setRow(label, sub, controls) {
+    const row = el("div", "set-row");
+    const text = el("div", "set-row-text");
+    text.appendChild(el("span", "set-row-label", label));
+    if (sub) text.appendChild(el("span", "set-row-sub", sub));
+    row.appendChild(text);
+    const right = el("div", "set-row-right");
+    (controls || []).forEach((c) => c && right.appendChild(c));
+    row.appendChild(right);
+    return row;
+  }
+
+  function setSwitch(on, label, onChange) {
+    const sw = button("set-switch" + (on ? " on" : ""));
+    sw.setAttribute("role", "switch");
+    sw.setAttribute("aria-checked", String(on));
+    sw.setAttribute("aria-label", label);
+    sw.addEventListener("click", () => {
+      const next = sw.getAttribute("aria-checked") !== "true";
+      sw.setAttribute("aria-checked", String(next));
+      sw.classList.toggle("on", next);
+      onChange(next);
+    });
+    return sw;
+  }
+
+  // The app's segmented control.
+  function setSeg(options, value, onChange) {
+    const seg = el("div", "seg");
+    seg.setAttribute("role", "group");
+    options.forEach(([v, text]) => {
+      const b = button(v === value ? "active" : "", text);
+      b.addEventListener("click", () => {
+        seg.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+        onChange(v);
+      });
+      seg.appendChild(b);
+    });
+    return seg;
+  }
+
+  function setSelect(options, value, onChange) {
+    const sel = el("select", "input small set-select");
+    options.forEach(([v, text]) => {
+      const o = el("option", null, text);
+      o.value = v;
+      sel.appendChild(o);
+    });
+    sel.value = value;
+    sel.addEventListener("change", () => onChange(sel.value));
+    return sel;
+  }
+
+  function setValue(text, kind) {
+    return el("span", "set-value" + (kind ? " " + kind : ""), text);
+  }
+
+  function setLink(text, href) {
+    const a = el("a", "btn small", text);
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    return a;
+  }
+
+  /* ---------- the Settings dialog ---------- */
+
+  function renderSettingsNav() {
+    const nav = $("settings-nav");
+    nav.textContent = "";
+    SETTINGS_SECTIONS.forEach((s) => {
+      const item = button("nav-item" + (settings.section === s.id ? " active" : ""));
+      item.appendChild(setIcon(s.icon));
+      item.appendChild(el("span", "set-nav-label", s.title));
+      if (s.id === "models" && settings.st && settings.st.pull && settings.st.pull.active) {
+        const pull = settings.st.pull;
+        item.appendChild(el("span", "count", pull.total ? Math.round((100 * pull.completed) / pull.total) + "%" : "…"));
+      }
+      item.addEventListener("click", () => {
+        settings.section = s.id;
+        $("settings-body").scrollTop = 0;
+        renderSettings();
+      });
+      nav.appendChild(item);
+    });
   }
 
   function renderSettings() {
+    if (!SETTINGS_SECTIONS.some((s) => s.id === settings.section)) settings.section = "general";
+    renderSettingsNav();
+    const sec = SETTINGS_SECTIONS.find((s) => s.id === settings.section);
     const body = $("settings-body");
+    const keep = body.scrollTop;
+    body.textContent = "";
+    const head = el("div", "set-head");
+    head.appendChild(el("h3", null, sec.title));
+    head.appendChild(el("p", "hint", sec.hint));
+    body.appendChild(head);
+    ({ general: paneGeneral, ai: paneAi, local: paneLocal, models: paneModels, github: paneGitHub, sharing: paneSharing,
+       guides: paneGuides, about: paneAbout })[sec.id](body);
+    body.scrollTop = keep;
+  }
+
+  function paneGeneral(body) {
+    const g = setGroup("Appearance");
+    const theme = loadPref("theme", "system");
+    g.group.appendChild(setRow("Theme", null, [setSeg([["system", "System"], ["light", "Light"], ["dark", "Dark"]],
+      theme === "light" || theme === "dark" ? theme : "system", (v) => setThemeMode(v))]));
+    body.appendChild(g.wrap);
+
+    const g2 = setGroup("Apps");
+    g2.group.appendChild(setRow("Open apps when they start", "A new browser tab opens as soon as the app is ready",
+      [setSwitch(loadPref("auto_open", "1") === "1", "Open apps when they start", (on) => savePref("auto_open", on ? "1" : "0"))]));
+    body.appendChild(g2.wrap);
+
+    const mod = IS_APPLE ? "⌘" : "Ctrl ";
+    const g3 = setGroup("Keyboard shortcuts");
+    [
+      ["Command palette", mod + "K"],
+      ["Ask AI", mod + "J"],
+      ["Search apps", "/"],
+      ["Close a dialog or panel", "Esc"],
+      ["Add a comment (on a shared page)", "C"],
+    ].forEach(([label, key]) => g3.group.appendChild(setRow(label, null, [el("kbd", "set-kbd", key)])));
+    body.appendChild(g3.wrap);
+  }
+
+  function paneAi(body) {
     const st = settings.st;
     const claude = settings.claude;
-    body.textContent = "";
-
-    // 1. which assistant
-    const pick = settingsSection("AI assistant", "Used by Ask AI (⌘J) and “Ask AI to fix” on crashed apps. Neither runs in the background.");
-    const choices = el("div", "set-choices");
-    const localReady = aiLocalReady(st);
-    [
-      ["claude", "Claude Code", claude && claude.available ? "Installed" + (claude.version ? " · " + claude.version : "") : "Not installed", "Most capable. Uses your Claude account."],
-      ["local", "Local model", localReady ? "Ready · " + (ai.localSel.value || st.models[0].name) : "Not set up yet", "Free and offline. Runs on this computer with Ollama."],
-    ].forEach(([value, name, state, note]) => {
-      const card = button("set-choice" + (ai.provider === value ? " active" : ""));
-      card.setAttribute("aria-pressed", String(ai.provider === value));
-      card.appendChild(el("b", null, name));
-      card.appendChild(el("span", "set-choice-state" + (/Installed|Ready/.test(state) ? " ok" : ""), state));
-      card.appendChild(el("span", "muted", note));
-      card.addEventListener("click", () => {
-        if (ai.running) {
-          toast("Wait for the assistant to finish first", "warn");
-          return;
-        }
-        aiSetProvider(value);
+    const g = setGroup(null);
+    g.group.appendChild(setRow("Assistant", ai.provider === "local" ? "Free and offline, on this computer" : "Most capable, uses your Claude account",
+      [setSeg([["claude", "Claude Code"], ["local", "Local model"]], ai.provider, (v) => {
+        if (ai.running) return toast("Wait for the assistant to finish first", "warn");
+        aiSetProvider(v);
         renderSettings();
-      });
-      choices.appendChild(card);
-    });
-    pick.appendChild(choices);
-    body.appendChild(pick);
-
-    if (!st) {
-      body.appendChild(el("p", "hint", "Checking the local model…"));
-      return;
+      })]));
+    g.group.appendChild(setRow("Default mode", "Act can change apps and files; Ask only looks and explains",
+      [setSeg([["act", "Act"], ["ask", "Ask only"]], ai.mode, (v) => aiSetMode(v))]));
+    if (ai.provider === "claude") {
+      const opts = [["sonnet", "Sonnet"], ["opus", "Opus"], ["haiku", "Haiku"], ["", "Account default"]];
+      if (ai.model.value === "__custom") opts.push(["__custom", "Custom (" + (ai.modelCustom.value || "…") + ")"]);
+      g.group.appendChild(setRow("Claude model", null, [setSelect(opts, ai.model.value, (v) => {
+        ai.model.value = v;
+        ai.model.dispatchEvent(new Event("change"));
+      })]));
+    } else if (st && st.models && st.models.length) {
+      g.group.appendChild(setRow("Local model", null, [setSelect(st.models.map((m) => [m.name, m.name]), ai.localSel.value, (v) => {
+        ai.localSel.value = v;
+        ai.localSel.dispatchEvent(new Event("change"));
+      })]));
     }
+    body.appendChild(g.wrap);
 
-    // 2. Ollama
-    const oll = settingsSection("Local AI with Ollama", "Ollama is a free app that runs open AI models. Nothing you ask leaves this computer, and a model is unloaded from memory a few minutes after it answers.");
-    const row = el("div", "set-row");
-    const info = el("div", "set-row-text");
+    const s = setGroup("Status");
+    s.group.appendChild(setRow("Claude Code", claude && claude.version ? claude.version : "The claude command on this computer",
+      [setValue(claude ? (claude.available ? "Installed" : "Not installed") : "Checking…", claude ? (claude.available ? "ok" : "") : "")]));
+    const ready = aiLocalReady(st);
+    let text = "Checking…";
+    if (st) text = ready ? "Ready · " + (ai.localSel.value || st.models[0].name) : st.running ? "No model yet" : st.installed ? "Ollama isn't running" : "Ollama isn't installed";
+    const setUp = st && !ready ? button("btn small", "Set up") : null;
+    if (setUp) setUp.addEventListener("click", () => { settings.section = st.running ? "models" : "local"; renderSettings(); });
+    s.group.appendChild(setRow("Local model", "Runs with Ollama", [setValue(text, ready ? "ok" : ""), setUp]));
+    body.appendChild(s.wrap);
+  }
+
+  function paneLocal(body) {
+    const st = settings.st;
+    if (!st) return body.appendChild(el("p", "hint", "Checking…"));
+    const g = setGroup("Ollama");
+    const controls = [];
+    let state;
     if (st.running) {
-      info.appendChild(el("b", null, "Ollama is running"));
-      info.appendChild(el("span", "muted", (st.version && st.version !== "unknown" ? "Version " + st.version + " · " : "") + st.url));
+      state = setValue("Running", "ok");
     } else if (st.installed) {
-      info.appendChild(el("b", null, "Ollama is installed but not running"));
-    } else {
-      info.appendChild(el("b", null, "Ollama isn't installed"));
-      info.appendChild(el("span", "muted", "About 0.5–2 GB. macOS, Windows and Linux."));
-    }
-    row.appendChild(info);
-    const actions = el("div", "set-row-actions");
-    if (!st.running && st.installed) {
+      state = setValue("Not running", "warn");
       const start = button("btn small primary", "Start Ollama");
       start.addEventListener("click", async () => {
         start.disabled = true;
@@ -4032,94 +4481,296 @@
         }
         refreshSettings();
       });
-      actions.appendChild(start);
-    } else if (!st.installed) {
-      const get = el("a", "btn small primary", "Download Ollama");
-      get.href = st.download_url;
-      get.target = "_blank";
-      get.rel = "noopener";
+      controls.push(start);
+    } else {
+      state = setValue("Not installed", "warn");
+      const get = setLink("Download Ollama", st.download_url);
+      get.classList.add("primary");
       const again = button("btn small", "Check again");
       again.addEventListener("click", () => refreshSettings());
-      actions.append(get, again);
+      controls.push(get, again);
     }
-    row.appendChild(actions);
-    oll.appendChild(row);
-    const facts = [];
-    if (st.ram_gb) facts.push(st.ram_gb.toFixed(0) + " GB memory");
-    if (typeof st.disk_free_gb === "number") facts.push(st.disk_free_gb.toFixed(0) + " GB free disk");
-    if (st.models_size_gb) facts.push("models use " + st.models_size_gb.toFixed(1) + " GB");
-    if (facts.length) oll.appendChild(el("p", "hint", "This computer: " + facts.join(" · ")));
-    body.appendChild(oll);
+    g.group.appendChild(setRow("Status", st.running && st.version && st.version !== "unknown" ? "Version " + st.version : "Free, about 0.5–2 GB", [state].concat(controls)));
+    g.group.appendChild(setRow("Address", null, [setValue(st.url)]));
+    body.appendChild(g.wrap);
 
-    // 3. models
-    const mods = settingsSection("Models", "Download one model to start. Bigger models give better answers but are slower and need more memory. Downloads continue in the background.");
-    const list = el("div", "ai-models");
-    (st.catalog || []).forEach((m) => list.appendChild(modelRow(st, m)));
-    (st.models || [])
-      .filter((m) => !(st.catalog || []).some((c) => sameModel(c.id, m.name)))
-      .forEach((m) => list.appendChild(modelRow(st, { id: m.name, name: m.name, size_bytes: m.size, installed: true })));
-    if (!st.running) list.classList.add("disabled");
-    mods.appendChild(list);
-    body.appendChild(mods);
+    const m = setGroup("This computer", "Models are stored by Ollama (in ~/.ollama), not inside Homeport.");
+    if (st.ram_gb) m.group.appendChild(setRow("Memory", null, [setValue(st.ram_gb.toFixed(0) + " GB")]));
+    if (typeof st.disk_free_gb === "number") m.group.appendChild(setRow("Free disk space", null, [setValue(st.disk_free_gb.toFixed(0) + " GB", st.disk_free_gb > 6 ? "" : "warn")]));
+    m.group.appendChild(setRow("Space used by models", null, [setValue((st.models_size_gb || 0).toFixed(1) + " GB")]));
+    body.appendChild(m.wrap);
+  }
 
-    // 4. fix guides
-    const guides = settingsSection("Fix guides", "Step-by-step guides the local model follows for common problems. The matching guide is picked automatically. Add your own as a Markdown file in the skills/ folder.");
-    const chips = el("div", "set-chips");
-    (st.skills || []).forEach((s) => chips.appendChild(el("span", "set-chip", s.title)));
-    guides.appendChild(chips);
-    body.appendChild(guides);
+  function paneModels(body) {
+    const st = settings.st;
+    if (!st) return body.appendChild(el("p", "hint", "Checking…"));
+    if (!st.running) {
+      const g = setGroup(null);
+      const go = button("btn small primary", "Open Local AI");
+      go.addEventListener("click", () => { settings.section = "local"; renderSettings(); });
+      g.group.appendChild(setRow("Ollama isn't running", "Start or install it to download models", [go]));
+      body.appendChild(g.wrap);
+    }
+    const installed = (st.catalog || []).filter((c) => c.installed);
+    const extra = (st.models || []).filter((m) => !(st.catalog || []).some((c) => sameModel(c.id, m.name)))
+      .map((m) => ({ id: m.name, name: m.name, size_bytes: m.size, installed: true }));
+    const g1 = setGroup("Downloaded");
+    if (!installed.length && !extra.length) g1.group.appendChild(setRow("No models yet", "Qwen3 4B (about 2.5 GB) is a good first choice"));
+    installed.concat(extra).forEach((m) => g1.group.appendChild(modelRow(st, m)));
+    body.appendChild(g1.wrap);
+    const avail = (st.catalog || []).filter((c) => !c.installed);
+    if (avail.length) {
+      const g2 = setGroup("Available", "Sizes are approximate. Downloads keep going in the background.");
+      avail.forEach((m) => g2.group.appendChild(modelRow(st, m)));
+      body.appendChild(g2.wrap);
+    }
+  }
+
+  function paneGitHub(body) {
+    const st = settings.github;
+    if (!st) {
+      body.appendChild(el("p", "hint", "Checking…"));
+      request("/api/github/status").then((g) => { settings.github = g; if (settings.open && settings.section === "github") renderSettings(); }).catch(() => {});
+      return;
+    }
+    const g = setGroup("Account");
+    if (st.connected) {
+      const via = st.source === "gh" ? "Through GitHub CLI" : "Signed in with Homeport";
+      const out = button("btn small", st.source === "gh" ? "Use another account" : "Disconnect");
+      out.addEventListener("click", async () => {
+        if (st.source === "gh") {
+          toast("Homeport uses your GitHub CLI login. Paste a token below to use another account.", "warn");
+          settings.github = Object.assign({}, st, { connected: false, forceSetup: true });
+          return renderSettings();
+        }
+        await request("/api/github/disconnect", { method: "POST" }).catch((e) => toast(e.message, "err"));
+        settings.github = null;
+        renderSettings();
+      });
+      g.group.appendChild(setRow("@" + st.user.login, (st.user.name && st.user.name !== st.user.login ? st.user.name + " · " : "") + via,
+        [setValue("Connected", "ok"), out]));
+      body.appendChild(g.wrap);
+    } else {
+      // One clear way: "Connect GitHub". The rest is for advanced setups, folded away.
+      const showOthers = !st.device_flow || settings.githubOthers;
+      if (st.device_flow) {
+        const connect = button("btn primary gh-connect", null);
+        connect.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + GH_MARK + '"/></svg>'; // static icon
+        connect.appendChild(el("span", null, "Connect GitHub"));
+        connect.addEventListener("click", () => ghDeviceSignIn(body));
+        const row = setRow("Not connected", "GitHub opens in your browser, you click Authorize, and you're done.", [connect]);
+        g.group.appendChild(row);
+      }
+      if (showOthers) {
+        g.group.appendChild(setRow("GitHub CLI", st.gh_installed ? "Run gh auth login in a terminal, then come back — Homeport uses it automatically" : "If you use GitHub CLI, Homeport uses its login automatically",
+          [setValue(st.gh_installed ? "Not logged in" : "Not installed")]));
+        const tok = el("input", "input small set-input");
+        tok.type = "password";
+        tok.placeholder = "ghp_… or github_pat_…";
+        tok.autocomplete = "off";
+        const save = button("btn small", "Connect");
+        save.addEventListener("click", async () => {
+          save.disabled = true;
+          try {
+            await request("/api/github/token", { method: "POST", body: JSON.stringify({ token: tok.value.trim() }) });
+            toast("GitHub connected", "ok");
+            settings.github = null;
+            renderSettings();
+          } catch (err) {
+            toast(err.message, "err");
+            save.disabled = false;
+          }
+        });
+        const link = el("a", "set-inline-link", "Create a token");
+        link.href = "https://github.com/settings/tokens/new?scopes=repo,read:user&description=Homeport";
+        link.target = "_blank";
+        link.rel = "noopener";
+        const sub = el("span", "set-row-sub");
+        sub.append("For GitHub Enterprise or locked-down setups. ", link);
+        const row = setRow("Personal access token", null, [tok, save]);
+        row.querySelector(".set-row-text").appendChild(sub);
+        g.group.appendChild(row);
+      }
+      body.appendChild(g.wrap);
+      if (st.device_flow && !settings.githubOthers) {
+        const more = button("link-btn gh-more", "Other ways to connect");
+        more.addEventListener("click", () => { settings.githubOthers = true; renderSettings(); });
+        g.wrap.appendChild(more);
+      }
+    }
+
+    const p = setGroup("Cloning", "“Add from GitHub” puts each repo in its own folder here.");
+    const choose = button("btn small", "Change…");
+    choose.addEventListener("click", async () => {
+      try {
+        const res = await request("/api/pick-folder", { method: "POST" });
+        if (!res.path) return;
+        await saveSetting({ projects_dir: res.path });
+        settings.github = null;
+        renderSettings();
+      } catch (err) {
+        toast(err.message, "err");
+      }
+    });
+    p.group.appendChild(setRow("Projects folder", st.projects_dir, [choose]));
+    const add = button("btn small", "Add from GitHub…");
+    add.addEventListener("click", () => { hideSettings(); openGitHub(); });
+    p.group.appendChild(setRow("Clone a repo", "Pick one of your repos or paste a link", [add]));
+    body.appendChild(p.wrap);
+  }
+
+  // "Sign in with GitHub": show the code, open GitHub, wait until it's entered.
+  async function ghDeviceSignIn(body) {
+    let start;
+    try {
+      start = await request("/api/github/device/start", { method: "POST" });
+    } catch (err) {
+      return toast(err.message, "err");
+    }
+    const g = setGroup("Enter this code on GitHub");
+    const code = el("div", "gh-code", start.user_code);
+    const copy = button("btn small", "Copy code");
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(start.user_code);
+        toast("Code copied — paste it on GitHub", "ok");
+      } catch (e) {
+        window.prompt("Copy this code:", start.user_code);
+      }
+    });
+    const open = el("a", "btn small primary", "Open GitHub");
+    open.href = start.verification_uri;
+    open.target = "_blank";
+    open.rel = "noopener";
+    // Put the code on the clipboard, so on GitHub it's just paste → Continue.
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(start.user_code);
+      copied = true;
+    } catch (e) {
+      /* no clipboard access: the Copy code button is right there */
+    }
+    const waiting = el("span", "set-row-sub", (copied ? "Code copied — paste it on GitHub (⌘V), then click Continue and Authorize. " : "Enter this code on GitHub, then click Continue and Authorize. ") + "Waiting…");
+    const row = setRow("Your code", null, [copy, open]);
+    row.querySelector(".set-row-text").append(code, waiting);
+    g.group.appendChild(row);
+    body.insertBefore(g.wrap, body.children[1] || null);
+    body.querySelectorAll(".gh-connect").forEach((b) => { b.disabled = true; }); // already waiting for approval
+    window.open(start.verification_uri, "_blank", "noopener");
+    let interval = (start.interval || 5) * 1000;
+    const until = Date.now() + (start.expires_in || 900) * 1000;
+    const tick = async () => {
+      if (!settings.open || Date.now() > until) return;
+      let res;
+      try {
+        res = await request("/api/github/device/poll", { method: "POST" });
+      } catch (err) {
+        res = { status: "pending" };
+      }
+      if (res.status === "done") {
+        toast("Connected to GitHub as @" + ((res.user && res.user.login) || ""), "ok");
+        settings.github = null;
+        return renderSettings();
+      }
+      if (res.status === "expired" || res.status === "denied") {
+        waiting.textContent = res.status === "denied" ? "The sign-in was cancelled on GitHub." : "The code expired — try again.";
+        return;
+      }
+      if (res.status === "slow_down") interval += 5000;
+      window.setTimeout(tick, interval);
+    };
+    window.setTimeout(tick, interval);
+  }
+
+  function paneSharing(body) {
+    const g = setGroup("New share links");
+    g.group.appendChild(setRow("Link stops after", null, [setSelect(
+      [["15", "15 minutes"], ["60", "1 hour"], ["480", "8 hours"], ["1440", "24 hours"], ["", "Never"]],
+      loadPref("share_expiry", "60"), (v) => savePref("share_expiry", v))]));
+    g.group.appendChild(setRow("Let visitors leave feedback", "Anyone with the link sees the open comments",
+      [setSwitch(loadPref("share_feedback", "0") === "1", "Let visitors leave feedback", (on) => savePref("share_feedback", on ? "1" : "0"))]));
+    body.appendChild(g.wrap);
+    const g2 = setGroup("Feedback", "Shown on replies you write in the Feedback window.");
+    const name = el("input", "input small set-input");
+    name.value = loadPref("fb_owner_name", "");
+    name.placeholder = "Owner";
+    name.maxLength = 60;
+    name.addEventListener("change", () => savePref("fb_owner_name", name.value.trim()));
+    g2.group.appendChild(setRow("Your name", null, [name]));
+    body.appendChild(g2.wrap);
+  }
+
+  function paneGuides(body) {
+    const st = settings.st;
+    const g = setGroup(null, "Add your own as a Markdown file in Homeport's skills/ folder.");
+    const skills = (st && st.skills) || [];
+    skills.forEach((s) => g.group.appendChild(setRow(s.title)));
+    if (!skills.length) g.group.appendChild(setRow(st ? "No guides found" : "Checking…"));
+    body.appendChild(g.wrap);
+  }
+
+  function paneAbout(body) {
+    const info = settings.about;
+    const g = setGroup(null);
+    g.group.appendChild(setRow("Homeport address", null, [setValue(info ? info.address : window.location.origin)]));
+    if (info) {
+      const open = button("btn small", "Open folder");
+      open.addEventListener("click", () => request("/api/about/open-data", { method: "POST" }).catch((e) => toast(e.message, "err")));
+      g.group.appendChild(setRow("Data folder", info.data_dir, [open]));
+    }
+    g.group.appendChild(setRow("License", null, [setValue("MIT — free and open source")]));
+    body.appendChild(g.wrap);
+    const g2 = setGroup("Links");
+    g2.group.appendChild(setRow("Website", null, [setLink("Open", "https://homeport.ferdousmikdad.com")]));
+    g2.group.appendChild(setRow("Help & docs", null, [setLink("Open", "https://homeport.ferdousmikdad.com/docs")]));
+    g2.group.appendChild(setRow("Source code", "github.com/ferdousmikdad/Homeport", [setLink("GitHub", "https://github.com/ferdousmikdad/Homeport")]));
+    g2.group.appendChild(setRow("Report a problem", null, [setLink("New issue", "https://github.com/ferdousmikdad/Homeport/issues")]));
+    body.appendChild(g2.wrap);
   }
 
   function modelRow(st, m) {
     const pull = st.pull && sameModel(st.pull.model, m.id) ? st.pull : null;
     if (pull && pull.active) m = Object.assign({}, m, { installed: false }); // half-downloaded
     const selected = m.installed && ai.localSel.value && sameModel(ai.localSel.value, m.id);
-    const row = el("div", "ai-model-row" + (m.installed ? " installed" : ""));
-    const info = el("div", "ai-model-info");
-    const title = el("div", "ai-model-name", m.name);
-    if (m.id === st.recommended) title.appendChild(el("span", "ai-badge", "Recommended"));
-    if (selected) title.appendChild(el("span", "ai-badge ok", "In use"));
-    else if (m.installed) title.appendChild(el("span", "ai-badge ok", "Downloaded"));
-    info.appendChild(title);
     const bits = [];
     if (m.note) bits.push(m.note);
     if (m.size_gb) bits.push(m.size_gb + " GB");
     else if (m.size_bytes) bits.push(fmtGB(m.size_bytes));
     if (m.ram_gb) bits.push("needs " + m.ram_gb + " GB memory");
-    info.appendChild(el("div", "ai-model-note", bits.join(" · ")));
-    if (m.ram_gb && st.ram_gb && m.ram_gb > st.ram_gb + 0.5) info.appendChild(el("div", "ai-model-warn", "May be slow on this computer"));
+    let sub = bits.join(" · ");
+    if (m.ram_gb && st.ram_gb && m.ram_gb > st.ram_gb + 0.5) sub += " — may be slow here";
+    if (pull && pull.error && !pull.active && !pull.cancelled && !m.installed) sub = "Download failed: " + pull.error;
+    const controls = [];
+    if (m.id === st.recommended && !m.installed && !(pull && pull.active)) controls.push(el("span", "set-tag", "Recommended"));
     if (pull && pull.active) {
-      const progress = el("div", "ai-progress");
-      const bar = el("div", "ai-progress-bar");
       const pct = pull.total ? Math.min(100, Math.round((100 * pull.completed) / pull.total)) : 0;
+      controls.push(setValue(pull.total ? pct + "% of " + fmtGB(pull.total) : "Starting…"));
+      const prog = el("div", "set-progress");
+      const bar = el("div", "set-progress-bar");
       bar.style.width = pct + "%";
-      progress.appendChild(bar);
-      info.appendChild(progress);
-      info.appendChild(el("div", "ai-model-note", pull.total ? "Downloading… " + pct + "% of " + fmtGB(pull.total) : pull.status || "Starting…"));
-    } else if (pull && pull.error && !pull.cancelled && !m.installed) {
-      info.appendChild(el("div", "ai-model-warn", "Download failed: " + pull.error));
-    }
-    row.appendChild(info);
-
-    const actions = el("div", "ai-model-actions");
-    if (pull && pull.active) {
+      prog.appendChild(bar);
+      controls.push(prog);
       const cancel = button("btn small", "Cancel");
       cancel.addEventListener("click", async () => {
         cancel.disabled = true;
         await request("/api/local-ai/pull/cancel", { method: "POST" }).catch(() => {});
         refreshSettings();
       });
-      actions.appendChild(cancel);
+      controls.push(cancel);
     } else if (m.installed) {
-      const use = button("btn small" + (selected ? "" : " primary"), selected ? "In use" : "Use");
-      use.disabled = !!selected;
-      use.addEventListener("click", async () => {
-        ai.localSel.value = m.id;
-        ai.sessionId = null;
-        await saveSetting({ local_model: m.id });
-        if (ai.provider !== "local") aiSetProvider("local");
-        refreshSettings();
-      });
+      if (selected) {
+        controls.push(setValue("In use", "ok"));
+      } else {
+        const use = button("btn small primary", "Use");
+        use.addEventListener("click", async () => {
+          ai.localSel.value = m.id;
+          ai.sessionId = null;
+          await saveSetting({ local_model: m.id });
+          if (ai.provider !== "local") aiSetProvider("local");
+          refreshSettings();
+        });
+        controls.push(use);
+      }
       const del = button("btn small ghost", "Remove");
       del.title = "Delete this model and free its disk space";
       del.addEventListener("click", async () => {
@@ -4141,7 +4792,7 @@
         }
         refreshSettings();
       });
-      actions.append(use, del);
+      controls.push(del);
     } else {
       const get = button("btn small", "Download");
       get.disabled = !st.running || !!(st.pull && st.pull.active);
@@ -4155,10 +4806,9 @@
         }
         refreshSettings();
       });
-      actions.appendChild(get);
+      controls.push(get);
     }
-    row.appendChild(actions);
-    return row;
+    return setRow(m.name, sub, controls);
   }
 
   async function refreshSettings() {
@@ -4173,8 +4823,12 @@
     if (ai.provider === "local" && !ai.panel.hidden) aiRefresh(false);
   }
 
-  async function openSettings() {
+  async function openSettings(section) {
+    if (typeof section === "string") settings.section = section;
     settings.open = true;
+    settings.github = null;
+    settings.githubOthers = false;
+    if (!settings.about) request("/api/about").then((a) => { settings.about = a; if (settings.open) renderSettings(); }).catch(() => {});
     $("settings-backdrop").hidden = false;
     renderSettings();
     request("/api/ai/status")
@@ -4242,7 +4896,8 @@
     }
   }
 
-  $("btn-settings").addEventListener("click", openSettings);
+  $("btn-settings").addEventListener("click", () => openSettings());
+
   $("settings-close").addEventListener("click", hideSettings);
   $("settings-backdrop").addEventListener("mousedown", (e) => {
     if (e.target === $("settings-backdrop")) hideSettings();
@@ -4345,7 +5000,7 @@
     ai.sessionId = null;
     if (ai.localSel.value) saveSetting({ local_model: ai.localSel.value });
   });
-  ai.modelsBtn.addEventListener("click", () => openSettings());
+  ai.modelsBtn.addEventListener("click", () => openSettings("models"));
   ai.model.addEventListener("change", () => {
     aiSavePref("model", ai.model.value);
     ai.modelCustom.hidden = ai.model.value !== "__custom";

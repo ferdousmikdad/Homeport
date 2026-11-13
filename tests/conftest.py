@@ -28,6 +28,14 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(feedback, "_dir", lambda: feedback_dir)
     monkeypatch.setattr(feedback, "_open_counts", {})
     monkeypatch.setattr(feedback, "_recent", __import__("collections").defaultdict(__import__("collections").deque))
+    # GitHub: a throw-away login file, no real GitHub CLI, no network, empty caches
+    from backend import github
+    gh_file = str(tmp_path_factory.mktemp("github") / "github.json")
+    monkeypatch.setattr(github, "_file", lambda: gh_file)
+    monkeypatch.setattr(github, "_gh_token", lambda: None)
+    monkeypatch.setattr(github, "gh_cli", lambda: None)
+    for cache in (github._user_cache, github._remote_cache, github._card_cache, github._device):
+        cache.clear()
 
 
 @pytest.fixture

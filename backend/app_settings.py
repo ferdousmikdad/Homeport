@@ -5,6 +5,8 @@ see the same choice (unlike localStorage, which is per browser).
 
     GET   /api/settings  -> {ai_provider, local_model}
     PATCH /api/settings  body: any of those keys (null clears)
+    GET   /api/about     -> {data_dir, address, installed}
+    POST  /api/about/open-data   open the data folder in Finder / Explorer
 """
 from __future__ import annotations
 
@@ -16,11 +18,11 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
-from . import paths
+from . import osutil, paths
 
 router = APIRouter()
 
-DEFAULTS: dict = {"ai_provider": None, "local_model": None}
+DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None}
 _lock = threading.Lock()
 
 
@@ -63,6 +65,15 @@ def _validate(key: str, value: Any) -> Any:
         if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][\w.\-/]*(:[\w.\-]+)?$", value) or len(value) > 120:
             raise HTTPException(status_code=400, detail="invalid model name")
         return value
+    if key == "projects_dir":  # where "Add from GitHub" clones repos
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(status_code=400, detail="projects_dir must be a folder path")
+        path = os.path.abspath(os.path.expanduser(value.strip()))
+        if os.path.exists(path) and not os.path.isdir(path):
+            raise HTTPException(status_code=400, detail="that path is a file, not a folder")
+        if not os.path.isdir(path) and not os.path.isdir(os.path.dirname(path)):
+            raise HTTPException(status_code=400, detail="that folder (or its parent) doesn't exist")
+        return path
     raise HTTPException(status_code=400, detail=f"unknown setting: {key}")
 
 
@@ -80,3 +91,24 @@ async def patch_settings(request: Request) -> dict:
     if not isinstance(body, dict) or not body:
         raise HTTPException(status_code=400, detail="send at least one setting")
     return update({k: _validate(k, v) for k, v in body.items()})
+
+
+@router.get("/api/about")
+async def about(request: Request) -> dict:
+    return {
+        "data_dir": paths.DATA_DIR,
+        "address": f"http://localhost:{request.url.port or 80}",
+        "installed": paths.FROZEN,  # the desktop app (vs. running from source)
+    }
+
+
+@router.post("/api/about/open-data")
+async def open_data_folder() -> dict:
+    import asyncio
+
+    os.makedirs(paths.DATA_DIR, exist_ok=True)
+    try:
+        await asyncio.to_thread(osutil.open_folder, paths.DATA_DIR)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"couldn't open the folder: {exc}") from exc
+    return {"ok": True, "path": paths.DATA_DIR}

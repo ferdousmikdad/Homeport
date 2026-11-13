@@ -29,8 +29,8 @@ def _git() -> Optional[str]:
     return shellenv.which("git")
 
 
-def _run(args: list, cwd: str, timeout: float) -> subprocess.CompletedProcess:
-    env = {**os.environ, "PATH": shellenv.user_path(), "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
+def _run(args: list, cwd: str, timeout: float, extra_env: Optional[dict] = None) -> subprocess.CompletedProcess:
+    env = {**os.environ, "PATH": shellenv.user_path(), "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C", **(extra_env or {})}
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout,
                           env=env, encoding="utf-8", errors="replace",
                           creationflags=_NO_WINDOW if osutil.IS_WINDOWS else 0)
@@ -91,6 +91,18 @@ def invalidate(path: str) -> None:
         _cache.pop(path, None)
 
 
+def _github_auth(git: str, path: str) -> dict:
+    """The GitHub login (if connected) for a github.com remote, so private repos pull too."""
+    try:
+        res = _run([git, "remote", "get-url", "origin"], path, timeout=5)
+        if res.returncode != 0 or "github.com" not in res.stdout or not res.stdout.strip().startswith("https://"):
+            return {}
+        from . import github
+        return github.auth_env()
+    except Exception:
+        return {}
+
+
 def pull(path: str) -> dict:
     """``git pull --ff-only``: never creates merge commits or overwrites work."""
     git = _git()
@@ -99,7 +111,7 @@ def pull(path: str) -> dict:
     if read(path) is None:
         raise RuntimeError("this folder is not a git repository")
     try:
-        res = _run([git, "pull", "--ff-only"], path, timeout=120)
+        res = _run([git, "pull", "--ff-only"], path, timeout=120, extra_env=_github_auth(git, path))
     except subprocess.TimeoutExpired:
         raise RuntimeError("git pull timed out") from None
     invalidate(path)

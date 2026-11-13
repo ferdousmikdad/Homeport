@@ -11,6 +11,7 @@ on the page (review mode, only on this computer).
 Dashboard API:
     GET    /api/apps/{id}/feedback                 -> {items, open}
     PATCH  /api/apps/{id}/feedback/{fid}  {status: "open"|"resolved"}
+    POST   /api/apps/{id}/feedback/{fid}/reply  {message, name?}
     DELETE /api/apps/{id}/feedback/{fid}
     DELETE /api/apps/{id}/feedback?status=resolved  (or all)
 """
@@ -37,6 +38,7 @@ app_exists: Optional[Callable[[str], bool]] = None
 MAX_ITEMS = 1000          # per app; the oldest resolved go first
 MAX_MESSAGE = 2000
 MAX_NAME = 60
+MAX_REPLIES = 100         # per comment
 RATE_LIMIT = (30, 600.0)  # per visitor (IP) and app: 30 notes per 10 minutes
 
 _lock = threading.RLock()
@@ -161,6 +163,31 @@ def add(app_id: str, data: dict, *, source: str = "share") -> dict:
     return item
 
 
+def add_reply(app_id: str, fid: str, data: dict, *, source: str = "share", open_only: bool = False) -> Optional[dict]:
+    """Add a reply to a comment (a thread, like in Figma). None if there's no such
+    comment (or it's resolved and ``open_only``). Raises ValueError on bad input."""
+    if not isinstance(data, dict):
+        raise ValueError("send a JSON object")
+    message = _text(data.get("message"), MAX_MESSAGE)
+    if not message:
+        raise ValueError("write a message")
+    reply = {"id": uuid.uuid4().hex[:12], "created_at": time.time(), "message": message,
+             "name": _text(data.get("name"), MAX_NAME), "source": "share" if source == "share" else "local"}
+    with _lock:
+        current = _load(app_id)
+        for item in current:
+            if item.get("id") == fid:
+                if open_only and item.get("status") != "open":
+                    return None
+                replies = item.setdefault("replies", [])
+                if len(replies) >= MAX_REPLIES:
+                    raise ValueError("this comment has too many replies")
+                replies.append(reply)
+                _save(app_id, current)
+                return reply
+    return None
+
+
 def set_status(app_id: str, fid: str, status: str) -> Optional[dict]:
     if status not in ("open", "resolved"):
         raise ValueError("status must be 'open' or 'resolved'")
@@ -226,6 +253,22 @@ async def update_feedback(app_id: str, fid: str, request: Request) -> dict:
     if item is None:
         raise HTTPException(status_code=404, detail="no such feedback")
     return item
+
+
+@router.post("/api/apps/{app_id}/feedback/{fid}/reply")
+async def reply_feedback(app_id: str, fid: str, request: Request) -> dict:
+    _check_app(app_id)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="request body must be valid JSON") from None
+    try:
+        reply = add_reply(app_id, fid, body, source="local")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if reply is None:
+        raise HTTPException(status_code=404, detail="no such feedback")
+    return reply
 
 
 @router.delete("/api/apps/{app_id}/feedback/{fid}")

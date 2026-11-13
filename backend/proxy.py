@@ -132,7 +132,7 @@ font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padd
 .card{{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:28px}}
 h1{{font-size:20px;margin:14px 0 4px}}p{{margin:0 0 18px;color:var(--muted);font-size:14px}}
 input{{width:100%;height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}}
-button{{width:100%;height:44px;margin-top:10px;border:0;border-radius:999px;background:var(--ink);color:var(--on);font:600 15px inherit;cursor:pointer}}
+button{{width:100%;height:44px;margin-top:10px;border:0;border-radius:999px;background:var(--ink);color:var(--on);font:600 15px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;cursor:pointer}}
 .err{{color:#dc2626;font-size:13px;margin:8px 0 0}}.foot{{margin-top:18px;font-size:12px;color:var(--muted);text-align:center}}
 svg{{width:36px;height:36px}}
 </style></head><body><div class="card">
@@ -217,7 +217,10 @@ class HostProxyMiddleware:
         if scope["type"] == "websocket":
             await self._proxy_ws(scope, receive, send, int(port))
         else:
-            await self._proxy_http(scope, receive, send, int(port), public_origin, inject)
+            # Pages of a share (and the owner's review view) must never come from the
+            # browser's cache: turning feedback on or off has to show on the next reload.
+            await self._proxy_http(scope, receive, send, int(port), public_origin, inject,
+                                   fresh_html=kind == "share" or bool(inject))
 
     # ------------------------------------------------------------------
     # password-protected shares
@@ -272,7 +275,7 @@ class HostProxyMiddleware:
     # HTTP
     # ------------------------------------------------------------------
     async def _proxy_http(self, scope, receive, send, port: int, public_origin: str,
-                          inject: Optional[str] = None) -> None:
+                          inject: Optional[str] = None, fresh_html: bool = False) -> None:
         path = scope.get("raw_path") or scope["path"].encode()
         qs = scope.get("query_string") or b""
         url = f"http://localhost:{port}{path.decode('latin-1')}" + (f"?{qs.decode('latin-1')}" if qs else "")
@@ -286,6 +289,11 @@ class HostProxyMiddleware:
         fwd.append((b"x-forwarded-proto", public_proto.encode()))
         # Ask for an uncompressed body so leftover localhost links can be fixed.
         fwd.append((b"accept-encoding", b"identity"))
+        accept = dict((k.lower(), v) for k, v in scope.get("headers") or []).get(b"accept", b"")
+        if fresh_html and b"text/html" in accept:
+            # a "304 not modified" would make the browser reuse a page without (or with
+            # a stale) feedback button, so always ask the app for the full page
+            fwd = [(k, v) for k, v in fwd if k.lower() not in (b"if-none-match", b"if-modified-since")]
 
         async def body_iter():
             while True:
@@ -328,8 +336,13 @@ class HostProxyMiddleware:
                         break
                 if len(body) <= _MAX_REWRITE:
                     body = _apply(body, swaps)
-                    if inject and resp.status_code < 400 and "text/html" in resp.headers.get("content-type", "").lower():
+                    is_html = "text/html" in resp.headers.get("content-type", "").lower()
+                    if inject and resp.status_code < 400 and is_html:
                         body = _inject_widget(body, inject)
+                    if fresh_html and is_html:
+                        out = [(k, v) for k, v in out
+                               if k.lower() not in (b"cache-control", b"etag", b"last-modified", b"expires")]
+                        out.append((b"cache-control", b"no-cache"))
                     out = [(k, v) for k, v in out if k.lower() != b"content-length"]
                     out.append((b"content-length", str(len(body)).encode()))
                     await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
@@ -386,6 +399,42 @@ class HostProxyMiddleware:
                 return await _send_json(send, 400, {"detail": str(exc) or "invalid feedback"})
             return await _send_json(send, 201, {"ok": True, "id": item["id"]})
 
+        # the notes on a page, drawn as pins (like comments in Figma). Visitors see the
+        # open notes with only what's needed to show them; the owner sees everything.
+        if path == _FB + "/list" and method == "GET":
+            q = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
+            page = q.get("page", [""])[0]
+            found = await asyncio.to_thread(feedback.items, app_id)
+            if page:
+                found = [i for i in found if urlsplit(i.get("page") or "/").path == page]
+            if not local:
+                public = ("id", "created_at", "message", "name", "page", "selector", "ox", "oy", "xp", "y", "status")
+                found = [dict({k: i.get(k) for k in public},
+                              replies=[{k: r.get(k) for k in ("id", "created_at", "message", "name")}
+                                       for r in i.get("replies") or []])
+                         for i in found if i.get("status") == "open"]
+            return await _send_json(send, 200, {"items": found, "can_manage": local})
+
+        # a reply in a comment's thread (visitors: only on open comments)
+        m = re.fullmatch(_FB + r"/([a-f0-9]{1,32})/reply", path)
+        if m and method == "POST":
+            raw = await _read_body(receive, 16384)
+            if raw is None:
+                return await _send_json(send, 413, {"detail": "too large"})
+            client = (headers.get(b"cf-connecting-ip") or b"").decode("latin-1") or \
+                str((scope.get("client") or ("?",))[0])
+            if not local and feedback.rate_limited(app_id, client):
+                return await _send_json(send, 429, {"detail": "too many comments at once — try again in a few minutes"})
+            try:
+                data = json.loads(raw.decode("utf-8") or "{}")
+                reply = await asyncio.to_thread(feedback.add_reply, app_id, m.group(1), data,
+                                                source=kind, open_only=not local)
+            except (ValueError, UnicodeDecodeError) as exc:
+                return await _send_json(send, 400, {"detail": str(exc) or "invalid reply"})
+            if reply is None:
+                return await _send_json(send, 404, {"detail": "this comment is gone or resolved"})
+            return await _send_json(send, 201, reply)
+
         if not local:
             return await _send_json(send, 404, {"detail": "not found"})
 
@@ -406,14 +455,6 @@ class HostProxyMiddleware:
                 (b"cache-control", b"no-store"), (b"content-length", b"0")]})
             await send({"type": "http.response.body", "body": b""})
             return
-
-        if path == _FB + "/list" and method == "GET":
-            q = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
-            page = q.get("page", [""])[0]
-            found = await asyncio.to_thread(feedback.items, app_id)
-            if page:
-                found = [i for i in found if urlsplit(i.get("page") or "/").path == page]
-            return await _send_json(send, 200, {"items": found})
 
         m = re.fullmatch(_FB + r"/([a-f0-9]{1,32})", path)
         if m and method == "POST":

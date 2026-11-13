@@ -179,9 +179,9 @@ def test_pull_reports_ollama_errors(client, monkeypatch):
 
 
 def test_settings_roundtrip_and_validation(client):
-    assert client.get("/api/settings").json() == {"ai_provider": None, "local_model": None}
+    assert client.get("/api/settings").json() == {"ai_provider": None, "local_model": None, "projects_dir": None}
     assert client.patch("/api/settings", json={"ai_provider": "local", "local_model": "qwen3:4b"}).json() == \
-        {"ai_provider": "local", "local_model": "qwen3:4b"}
+        {"ai_provider": "local", "local_model": "qwen3:4b", "projects_dir": None}
     assert client.get("/api/settings").json()["ai_provider"] == "local"
     assert client.patch("/api/settings", json={"ai_provider": "gpt"}).status_code == 400
     assert client.patch("/api/settings", json={"theme": "x"}).status_code == 400
@@ -322,3 +322,12 @@ def test_ask_validation(client, fake):
     assert client.post("/api/local-ai/ask", json={"prompt": "hi", "model": "x y"}).status_code == 400
     assert client.post("/api/local-ai/confirm", json={"id": "nope", "approve": True}).status_code == 404
     assert client.post("/api/local-ai/stop").json() == {"stopped": False}
+
+
+def test_about_reports_data_folder(client, monkeypatch):
+    from backend import osutil
+    opened = []
+    monkeypatch.setattr(osutil, "open_folder", opened.append)
+    data = client.get("/api/about").json()
+    assert data["data_dir"] and data["address"].startswith("http://localhost") and data["installed"] in (True, False)
+    assert client.post("/api/about/open-data").json()["ok"] is True and opened == [data["data_dir"]]

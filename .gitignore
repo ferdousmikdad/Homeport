@@ -10,6 +10,9 @@ data/share.json
 data/apps.json
 data/*.tmp
 data/services/
+data/feedback/
+data/settings.json
+data/github.json
 .runtime/
 data/tmp/
 

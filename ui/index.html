@@ -24,9 +24,6 @@
       <button type="button" id="btn-collapse" class="icon-btn" title="Hide sidebar" aria-label="Hide sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
     </div>
 
-    <button type="button" id="btn-discover" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.5" r="2.6"/><path d="m14 15.5 1.8 1.8"/></svg><span>Discover projects</span></button>
-    <button type="button" id="btn-services" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v13c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-13M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></svg><span>Databases &amp; services</span></button>
-    <button type="button" id="btn-settings" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Settings</span><span id="settings-badge" class="side-badge" hidden></span></button>
 
     <nav class="side-nav" id="status-seg" aria-label="Status filter">
       <button type="button" class="nav-item active" data-filter="all"><span class="nav-ico ico-all" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></span>All apps <span id="count-all" class="count">0</span></button>
@@ -43,7 +40,15 @@
     </section>
     <select id="category-filter" aria-label="Filter by category" hidden></select>
 
+    <section class="side-section side-tools">
+      <div class="side-section-head static"><span>Tools</span></div>
+    <button type="button" id="btn-discover" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.5" r="2.6"/><path d="m14 15.5 1.8 1.8"/></svg><span>Discover projects</span></button>
+    <button type="button" id="btn-services" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v13c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-13M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></svg><span>Databases &amp; services</span></button>
+      <button type="button" id="btn-github" class="side-link"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg><span>Add from GitHub</span></button>
+    </section>
+
     <div class="side-foot">
+      <button type="button" id="btn-settings" class="side-link side-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span><span id="settings-badge" class="side-badge" hidden></span></button>
       <div class="side-card">
         <span class="side-card-mark"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg></span>
         <div class="side-card-text">
@@ -68,7 +73,7 @@
         <button type="button" id="btn-theme" class="icon-btn" aria-label="Toggle light/dark theme" title="Toggle theme"></button>
         <button type="button" id="btn-quit" class="icon-btn" aria-label="Quit Homeport" title="Quit Homeport" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg></button>
         <a class="icon-btn" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener noreferrer" title="Star Homeport on GitHub" aria-label="Star Homeport on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg></a>
-        <a class="icon-btn" href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/" target="_blank" rel="noopener noreferrer" title="About public share links" aria-label="About public share links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.1 2.2c-.6.3-.9.8-.9 1.4v.4M12 16.6v.1"/></svg></a>
+        <a class="icon-btn" href="https://homeport.ferdousmikdad.com/docs" target="_blank" rel="noopener noreferrer" title="Help & docs" aria-label="Help and docs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.1 2.2c-.6.3-.9.8-.9 1.4v.4M12 16.6v.1"/></svg></a>
       </div>
     </div>
   </aside>
@@ -526,13 +531,38 @@
     </div>
   </div>
 
+  <div id="gh-backdrop" class="backdrop" hidden>
+    <div class="modal gh-dialog" role="dialog" aria-labelledby="gh-title">
+      <header class="modal-head">
+        <h2 id="gh-title">Add from GitHub</h2>
+        <button type="button" id="gh-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="gh-tools">
+        <label class="gh-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg>
+          <input type="search" id="gh-q" placeholder="Search your repos, or paste a GitHub link" autocomplete="off" spellcheck="false" />
+        </label>
+      </div>
+      <div id="gh-body" class="form-body gh-body"></div>
+      <footer class="modal-foot gh-foot">
+        <span id="gh-where" class="muted gh-where"></span>
+        <label class="check small"><input type="checkbox" id="gh-start" checked /> Start after adding</label>
+        <button type="button" id="gh-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="gh-clone" class="btn primary" disabled>Clone &amp; add</button>
+      </footer>
+    </div>
+  </div>
+
   <div id="settings-backdrop" class="backdrop" hidden>
     <div class="modal settings-dialog" role="dialog" aria-labelledby="settings-title">
       <header class="modal-head">
         <h2 id="settings-title">Settings</h2>
         <button type="button" id="settings-close" class="icon-btn" aria-label="Close">&times;</button>
       </header>
-      <div id="settings-body" class="form-body settings-body"></div>
+      <div class="settings-layout">
+        <nav id="settings-nav" class="settings-nav" aria-label="Settings sections"></nav>
+        <div id="settings-body" class="settings-body"></div>
+      </div>
     </div>
   </div>
 

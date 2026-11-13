@@ -127,6 +127,7 @@ def test_visitor_widget_and_notes(client, site, tm):  # noqa: F811
     assert "fb.js" not in client.get("/", headers=share).text
     assert client.get("/__homeport/fb.js", headers=share).status_code == 404
     assert client.post("/__homeport/fb", json={"message": "hi"}, headers=share).status_code == 404
+    assert client.get("/__homeport/fb/list", headers=share).status_code == 404  # feedback off: nothing to read
 
     tm.set_feedback("web", True)
     page = client.get("/", headers=share).text
@@ -139,8 +140,13 @@ def test_visitor_widget_and_notes(client, site, tm):  # noqa: F811
     assert client.post("/__homeport/fb", json={"message": ""}, headers=share).status_code == 400
     stored = feedback.items("web")
     assert stored[0]["message"] == "Price is wrong" and stored[0]["source"] == "share"
+    # visitors see the open comments as pins (like Figma), with only what's needed to draw them
+    feedback.set_status("web", feedback.add("web", {"message": "old, fixed", "page": "/"})["id"], "resolved")
+    public = client.get("/__homeport/fb/list?page=/", headers=share).json()
+    assert [i["message"] for i in public["items"]] == ["Price is wrong"] and public["can_manage"] is False
+    assert set(public["items"][0]) <= {"id", "created_at", "message", "name", "page", "selector", "ox", "oy", "xp", "y", "status", "replies"}
+    assert "ua" not in public["items"][0] and "url" not in public["items"][0]
     # owner-only endpoints are never reachable through the public link
-    assert client.get("/__homeport/fb/list", headers=share).status_code == 404
     assert client.get("/__homeport/fb/review?on=1", headers=share).status_code == 404
     assert client.post(f"/__homeport/fb/{stored[0]['id']}", json={"status": "resolved"}, headers=share).status_code == 404
 
@@ -154,7 +160,9 @@ def test_review_mode_on_named_url(client, site):
     assert "homeport_review=1" in on.headers["set-cookie"]
     cookie = {**named, "Cookie": "homeport_review=1"}
     assert 'data-mode="review"' in client.get("/", headers=cookie).text
-    listed = client.get("/__homeport/fb/list?page=/", headers=named).json()["items"]
+    listed_all = client.get("/__homeport/fb/list?page=/", headers=named).json()
+    assert listed_all["can_manage"] is True
+    listed = listed_all["items"]
     assert [i["id"] for i in listed] == [item["id"]]
     assert client.post(f"/__homeport/fb/{item['id']}", json={"status": "resolved"}, headers=named).json()["status"] == "resolved"
     off = client.get("/__homeport/fb/review?on=0&to=//evil.example", headers=named, follow_redirects=False)
@@ -180,3 +188,35 @@ def test_open_app_page_and_share_link(client, isolated_registry, tmp_path, monke
     tm._shares["web"].url = "https://example.trycloudflare.com"
     assert client.post("/api/apps/web/open", json={"target": "share"}).json()["url"] == "https://example.trycloudflare.com"
     assert opened[-1] == "https://example.trycloudflare.com"
+
+
+def test_shared_pages_are_never_served_from_cache(client, site, tm):  # noqa: F811
+    """Turning feedback on must show on the next reload, even for a page the
+    visitor's browser had cached before (no 304, no heuristic freshness)."""
+    share = {"Host": "web.share.localhost", "Accept": "text/html"}
+    tm.start("web", site)
+    first = client.get("/", headers=share)
+    assert first.headers["cache-control"] == "no-cache"
+    assert "last-modified" not in first.headers and "etag" not in first.headers
+    tm.set_feedback("web", True)
+    again = client.get("/", headers={**share, "If-Modified-Since": "Wed, 01 Jan 2031 00:00:00 GMT"})
+    assert again.status_code == 200 and "/__homeport/fb.js" in again.text
+
+
+def test_replies_make_a_thread(client, site, tm):  # noqa: F811
+    share = {"Host": "web.share.localhost"}
+    named = {"Host": "web.localhost:7777"}
+    tm.start("web", site, feedback=True)
+    fid = client.post("/__homeport/fb", json={"message": "Logo too big", "page": "/"}, headers=share).json()["id"]
+    r = client.post(f"/__homeport/fb/{fid}/reply", json={"message": "Agree", "name": "Sam"}, headers=share)
+    assert r.status_code == 201 and r.json()["name"] == "Sam"
+    assert client.post(f"/__homeport/fb/{fid}/reply", json={"message": " "}, headers=share).status_code == 400
+    assert client.post("/__homeport/fb/abc123/reply", json={"message": "x"}, headers=share).status_code == 404
+    # the owner replies from the dashboard; visitors see the whole thread
+    assert client.post(f"/api/apps/web/feedback/{fid}/reply", json={"message": "Fixing it", "name": "Owner"}).status_code == 200
+    thread = client.get("/__homeport/fb/list?page=/", headers=share).json()["items"][0]["replies"]
+    assert [x["message"] for x in thread] == ["Agree", "Fixing it"] and set(thread[0]) == {"id", "created_at", "message", "name"}
+    # resolved: visitors can't reply any more, the owner still can
+    feedback.set_status("web", fid, "resolved")
+    assert client.post(f"/__homeport/fb/{fid}/reply", json={"message": "late"}, headers=share).status_code == 404
+    assert client.post(f"/__homeport/fb/{fid}/reply", json={"message": "noted"}, headers=named).status_code == 201
