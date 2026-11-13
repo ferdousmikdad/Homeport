@@ -103,6 +103,103 @@
   }
   document.querySelectorAll(".term-tabs button").forEach((b) => b.addEventListener("click", () => selectTerm(b.dataset.term)));
 
+  // ---- Line illustrations for the "And more" cards (drawn, not images) ----
+  (function lineArt() {
+    const NS = "http://www.w3.org/2000/svg";
+    const W = 400, H = 220;
+    const mk = (svg, tag, attrs) => {
+      const e = document.createElementNS(NS, tag);
+      for (const k in attrs) e.setAttribute(k, attrs[k]);
+      svg.appendChild(e);
+      return e;
+    };
+    const line = (svg, x1, y1, x2, y2, cls) => mk(svg, "line", { x1, y1, x2, y2, class: "ln" + (cls ? " " + cls : "") });
+    const R = (a) => (a * Math.PI) / 180;
+    const art = {
+      // Discovery: rays fanning out from a point, like a scan
+      burst(svg) {
+        const cx = 200, cy = 196;
+        for (let i = 0; i <= 18; i++) {
+          const a = R(180 + (i * 180) / 18);
+          const r1 = 26 + (i % 3) * 6, r2 = 70 + ((i * 37) % 60);
+          line(svg, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, cx + Math.cos(a) * r2, cy + Math.sin(a) * r2, i % 4 === 1 ? "dim" : "");
+        }
+      },
+      // Workspaces: apps that start one after another
+      chain(svg) {
+        const xs = [70, 155, 245, 330];
+        xs.forEach((x, i) => {
+          if (i) line(svg, xs[i - 1] + 16, 110, x - 16, 110, i === 3 ? "dim" : "");
+          mk(svg, "circle", { cx: x, cy: 110, r: 14, class: "ln" + (i === 3 ? " dim" : "") });
+          if (i < 3) mk(svg, "circle", { cx: x, cy: 110, r: 4, class: "dot" });
+          for (let k = 0; k < 3; k++) line(svg, x - 10 + k * 10, 140, x - 10 + k * 10, 150 + ((i + k) % 3) * 8, "dim");
+        });
+      },
+      // Git: a trunk with branches
+      branches(svg) {
+        line(svg, 40, 120, 360, 120);
+        [[90, 60, 200], [150, 175, 270], [230, 70, 330]].forEach(([x, y, x2], i) => {
+          mk(svg, "path", { d: `M${x} 120 C ${x + 30} 120, ${x + 20} ${y}, ${x + 55} ${y} L ${x2} ${y}`, class: "ln" + (i === 1 ? " dim" : "") });
+          mk(svg, "circle", { cx: x2, cy: y, r: 4, class: "dot" + (i === 1 ? " dim" : "") });
+        });
+        [40, 90, 150, 230, 300, 360].forEach((x) => mk(svg, "circle", { cx: x, cy: 120, r: 4, class: "dot" }));
+      },
+      // Logs: lines of output
+      bars(svg) {
+        for (let i = 0; i < 9; i++) {
+          const y = 40 + i * 18, len = 60 + ((i * 53) % 200);
+          line(svg, 60, y, 60 + 18, y, "dim");
+          line(svg, 90, y, 90 + len, y, i === 6 ? "" : i % 3 ? "dim" : "");
+        }
+      },
+      // Auto-restart: circles coming back around
+      rings(svg) {
+        for (let i = 0; i < 6; i++) {
+          const r = 22 + i * 14, gap = 20 + i * 6;
+          const a1 = R(-90 + gap), a2 = R(250);
+          const d = `M ${200 + r * Math.cos(a1)} ${110 + r * Math.sin(a1)} A ${r} ${r} 0 1 1 ${200 + r * Math.cos(a2)} ${110 + r * Math.sin(a2)}`;
+          mk(svg, "path", { d, class: "ln" + (i % 2 ? " dim" : ""), "stroke-dasharray": i % 3 === 2 ? "3 6" : "" });
+        }
+      },
+      // CPU & memory: a live trace
+      pulse(svg) {
+        let d = "M 30 140";
+        for (let x = 30; x <= 370; x += 10) {
+          const y = 140 - (Math.sin(x / 23) * 18 + Math.sin(x / 7) * 6 + (x > 200 && x < 230 ? -50 : 0));
+          d += ` L ${x} ${y.toFixed(1)}`;
+        }
+        mk(svg, "path", { d, class: "ln" });
+        for (let x = 30; x <= 370; x += 20) line(svg, x, 180, x, 184, "dim");
+        line(svg, 30, 180, 370, 180, "dim");
+      },
+    };
+    document.querySelectorAll("[data-art]").forEach((box) => {
+      const draw = art[box.dataset.art];
+      if (!draw) return;
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      svg.setAttribute("aria-hidden", "true");
+      draw(svg);
+      box.appendChild(svg);
+    });
+    // Fade the drawings in as they scroll into view.
+    const tiles = document.querySelectorAll(".reveal");
+    if (!("IntersectionObserver" in window)) {
+      tiles.forEach((t) => t.classList.add("in"));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.25 });
+    tiles.forEach((t) => io.observe(t));
+  })();
+
   // Decorative QR pattern for the phone-preview visual
   const qr = document.getElementById("qr");
   if (qr) {
