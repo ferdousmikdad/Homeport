@@ -15,12 +15,11 @@ from __future__ import annotations
 import os
 from typing import Callable, Optional
 
-from . import osutil, shellenv
+from . import osutil, paths, shellenv
 
 __all__ = ["CATALOG", "catalog", "plan", "SERVICES_DIR"]
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVICES_DIR = os.path.join(_PROJECT_ROOT, "data", "services")
+SERVICES_DIR = os.path.join(paths.DATA_DIR, "services")
 
 _INSTALL = {
     "postgres": {

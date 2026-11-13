@@ -24,7 +24,7 @@
     </nav>
     <div class="nav-right">
       <a class="btn small gh-btn" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">GitHub <span class="count" data-stars></span></a>
-      <a class="btn small primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">Download</a>
+      <a class="btn small primary" href="/#download">Download</a>
     </div>
   </div>
 </header>
@@ -60,7 +60,24 @@
     <h1>Homeport docs</h1>
     <p class="intro">Everything you need to run, watch and share your local projects. Homeport runs on your own computer — no account, nothing to pay.</p>
 
-    <h2 id="install">Install &amp; first run</h2>
+    <h2 id="install">Install</h2>
+    <p>Get the desktop app from the <a href="https://github.com/ferdousmikdad/Homeport/releases/latest">latest release</a> — the download button on the home page picks the right one for your computer:</p>
+    <table>
+      <tr><th>System</th><th>File</th></tr>
+      <tr><td>macOS (Apple Silicon)</td><td><code>Homeport-mac-arm64.dmg</code> — drag Homeport to Applications</td></tr>
+      <tr><td>Windows 10/11</td><td><code>Homeport-Setup-x64.exe</code> — no admin rights needed</td></tr>
+      <tr><td>Linux x86_64</td><td><code>Homeport-x86_64.AppImage</code> or <code>homeport_amd64.deb</code></td></tr>
+    </table>
+    <p>Or install from the terminal — the same app, without the “unverified developer” prompt:</p>
+    <pre><code># macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.ps1 | iex</code></pre>
+    <div class="note"><strong>First open of a downloaded installer.</strong> Homeport is free and isn't signed with a paid Apple/Microsoft certificate, so the system asks once. <strong>macOS:</strong> if it says the app can't be opened, go to System Settings → Privacy &amp; Security and click <em>Open Anyway</em> (or right-click the app → Open). <strong>Windows:</strong> on “Windows protected your PC”, click <em>More info → Run anyway</em>. Intel Macs and other systems: use the terminal command, which falls back to running from source.</div>
+    <p>The app opens Homeport in its own window; closing the window (or <em>Quit Homeport</em> in the sidebar or ⌘K) stops it and every app it runs. Its data lives in <code>~/Library/Application Support/Homeport</code>, <code>%APPDATA%\Homeport</code> or <code>~/.local/share/homeport</code>.</p>
+
+    <h2 id="source">Run from source</h2>
     <p><strong>Nothing needs to be installed first.</strong> Download the ZIP from GitHub (or <code>git clone</code> it), then:</p>
     <table>
       <tr><th>System</th><th>Start Homeport</th></tr>

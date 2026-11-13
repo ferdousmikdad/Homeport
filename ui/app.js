@@ -560,6 +560,20 @@
   const IS_APPLE = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
   const FOLDER_LABEL = { windows: "Open in Explorer", linux: "Open folder", mac: "Open in Finder" };
   let serverPlatform = "mac";
+  let canQuit = false;
+
+  async function quitHomeport() {
+    showConfirm("Quit Homeport?", "This stops Homeport and every app it's running.", "Quit", async () => {
+      try {
+        await request("/api/quit", { method: "POST" });
+        document.body.textContent = "";
+        const msg = el("div", "quit-msg", "Homeport has quit. You can close this window.");
+        document.body.appendChild(msg);
+      } catch (err) {
+        toast("Couldn't quit: " + err.message, "err");
+      }
+    }, "danger");
+  }
 
   function createStat(label, extraClass) {
     const wrap = el("div", "stat" + (extraClass ? " " + extraClass : ""));
@@ -2047,6 +2061,7 @@
   }
 
   $("btn-discover").addEventListener("click", openDiscover);
+  $("btn-quit").addEventListener("click", () => quitHomeport());
   $("btn-cmdk").addEventListener("click", () => openPalette());
   $("disc-close").addEventListener("click", hideDiscover);
   $("disc-cancel").addEventListener("click", hideDiscover);
@@ -2926,6 +2941,7 @@
       () => els.viewBtns[state.viewMode === "grid" ? 1 : 0].click(), "layout");
     act(state.groupBy ? "Stop grouping by category" : "Group by category", "layers", () => els.btnGroup.click(), "workspaces");
     if (!$("ai-fab").hidden) act("Ask AI", "chat", () => openAi(), "assistant claude help");
+    if (canQuit) act("Quit Homeport", "stop", () => quitHomeport(), "exit close shutdown");
     return cmds;
   }
 
@@ -3425,6 +3441,11 @@
   // Ask the server which OS it runs on, for "Open in Finder / Explorer" wording.
   request("/api/health")
     .then((h) => {
+      if (h && h.can_quit) {
+        canQuit = true;
+        const btn = document.getElementById("btn-quit");
+        if (btn) btn.hidden = false;
+      }
       if (h && h.platform && h.platform !== serverPlatform) {
         serverPlatform = h.platform;
         const label = FOLDER_LABEL[serverPlatform] || "Open folder";

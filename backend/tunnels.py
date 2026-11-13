@@ -29,12 +29,11 @@ import time
 from collections import deque
 from typing import Optional
 
-from . import osutil, shellenv
+from . import osutil, paths, shellenv
 
 __all__ = ["TunnelManager", "CloudflaredMissing"]
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN_DIR = os.path.join(_PROJECT_ROOT, "bin")
+BIN_DIR = paths.BIN_DIR
 
 _QUICK_URL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 

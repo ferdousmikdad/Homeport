@@ -33,12 +33,11 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import osutil, shellenv
+from . import osutil, paths, shellenv
 
 __all__ = ["ProcessManager"]
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_DEFAULT_LOG_DIR = os.path.join(_PROJECT_ROOT, "data", "logs")
+_DEFAULT_LOG_DIR = os.path.join(paths.DATA_DIR, "logs")
 _MAX_LOG_SIZE = 5 * 1024 * 1024  # 5 MB
 
 

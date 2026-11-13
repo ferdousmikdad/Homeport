@@ -33,11 +33,12 @@ import threading
 import time
 from typing import Callable, Optional
 
+from . import paths
+
 __all__ = ["load_recipes", "match_recipe", "RECIPE_DIRS"]
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECIPE_DIRS = [
-    os.path.join(_PROJECT_ROOT, "recipes"),
+    paths.RECIPES_DIR,
     os.path.join(os.path.expanduser("~"), ".homeport", "recipes"),
 ]
 

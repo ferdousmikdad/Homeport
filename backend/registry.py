@@ -34,11 +34,12 @@ import threading
 import unicodedata
 from typing import Any
 
+from . import paths
+
 __all__ = ["Registry", "slugify", "DEFAULT_PATH", "COLORS"]
 
 # Default location: <repo>/data/apps.json, independent of the current cwd.
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_PATH = os.path.join(_PROJECT_ROOT, "data", "apps.json")
+DEFAULT_PATH = os.path.join(paths.DATA_DIR, "apps.json")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "id": "",

@@ -53,6 +53,56 @@
       .catch(() => {});
   }
 
+  // ---- Smart download button: pick the installer for this device ----
+  (function smartDownload() {
+    const base = "https://github.com/ferdousmikdad/Homeport/releases/latest/download/";
+    const files = {
+      mac: { file: "Homeport-mac-arm64.dmg", label: "Download for macOS" },
+      win: { file: "Homeport-Setup-x64.exe", label: "Download for Windows" },
+      linux: { file: "Homeport-x86_64.AppImage", label: "Download for Linux" },
+    };
+    const ua = navigator.userAgent || "";
+    const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    const touchMac = /Mac/i.test(plat) && navigator.maxTouchPoints > 1; // iPad pretends to be a Mac
+    let os = "other";
+    if (/Android|iPhone|iPad|iPod/i.test(ua) || touchMac) os = "mobile";
+    else if (/Win/i.test(plat) || /Windows/i.test(ua)) os = "win";
+    else if (/Mac/i.test(plat) || /Mac OS X/i.test(ua)) os = "mac";
+    else if (/Linux|X11|CrOS/i.test(plat + " " + ua)) os = "linux";
+
+    const primary = document.getElementById("dl-primary");
+    const label = document.getElementById("dl-label");
+    const sub = document.getElementById("dl-sub");
+    const smart = document.querySelectorAll("[data-dl-smart]");
+    if (files[os]) {
+      const href = base + files[os].file;
+      primary.href = href;
+      label.textContent = files[os].label;
+      smart.forEach((a) => { a.href = href; a.textContent = files[os].label; });
+      document.querySelectorAll('.dl-other a[data-os="' + os + '"]').forEach((a) => a.classList.add("current"));
+    } else if (os === "mobile") {
+      label.textContent = "View on GitHub";
+      primary.href = "https://github.com/ferdousmikdad/Homeport";
+      if (sub) sub.textContent = "Homeport runs on your computer — open this page on macOS, Windows or Linux to download.";
+    }
+    // Terminal tab follows the OS
+    selectTerm(os === "win" ? "win" : "unix");
+    // Intel Macs: the .dmg is for Apple Silicon — point them at the terminal command.
+    if (os === "mac" && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      navigator.userAgentData.getHighEntropyValues(["architecture"]).then((v) => {
+        if (v && v.architecture === "x86" && sub) {
+          sub.textContent = "Intel Mac? Use the terminal command below — it works on every Mac.";
+        }
+      }).catch(() => {});
+    }
+  })();
+
+  function selectTerm(which) {
+    document.querySelectorAll(".term-tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.term === which)));
+    document.querySelectorAll("[data-term-panel]").forEach((p) => (p.hidden = p.dataset.termPanel !== which));
+  }
+  document.querySelectorAll(".term-tabs button").forEach((b) => b.addEventListener("click", () => selectTerm(b.dataset.term)));
+
   // Decorative QR pattern for the phone-preview visual
   const qr = document.getElementById("qr");
   if (qr) {

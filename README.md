@@ -35,7 +35,39 @@ Plus: live CPU / memory / uptime, persistent logs with search, auto-restart on
 crash, start at login, port-conflict detection, drag-and-drop organising,
 categories, light & dark themes.
 
-## Quick start
+## Install
+
+**Desktop app** — download from the [latest release](https://github.com/ferdousmikdad/Homeport/releases/latest):
+
+| System | File |
+|--------|------|
+| macOS (Apple Silicon) | `Homeport-mac-arm64.dmg` — drag Homeport to Applications |
+| Windows 10/11 | `Homeport-Setup-x64.exe` (no admin rights needed) |
+| Linux x86_64 | `Homeport-x86_64.AppImage` or `homeport_amd64.deb` |
+
+Or install from the terminal (same app, and no "unverified developer" prompt):
+
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.ps1 | iex
+```
+
+> **First open of a downloaded installer.** Homeport is free and isn't signed
+> with a paid Apple/Microsoft certificate, so the system asks once:
+> - **macOS:** if it says the app "can't be opened", go to *System Settings →
+>   Privacy & Security* and click **Open Anyway** (or right-click the app → Open).
+> - **Windows:** on "Windows protected your PC", click **More info → Run anyway**.
+>
+> The terminal install above avoids this. The installed app keeps its data in
+> `~/Library/Application Support/Homeport`, `%APPDATA%\Homeport` or
+> `~/.local/share/homeport`.
+
+## Run from source
 
 **Nothing to install first.** Download or clone this repository, then:
 

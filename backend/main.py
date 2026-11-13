@@ -29,12 +29,12 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, diagnose, gitinfo, icons, monitor, osutil, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UI_DIR = os.path.join(PROJECT_ROOT, "ui")
+PROJECT_ROOT = paths.SOURCE_ROOT
+UI_DIR = paths.UI_DIR
 TICK_SECONDS = 1.0
 RESTART_WINDOW_SECONDS = 300.0
 TAIL_DEFAULT = 500
@@ -1237,7 +1237,7 @@ async def wordpress_import(app_id: str, request: Request) -> dict:
             await start_app(svc["id"], kill_conflict=0)
         await _wait_until_up(svc["id"], timeout=90)
 
-    tmp_dir = os.path.join(PROJECT_ROOT, "data", "tmp")
+    tmp_dir = os.path.join(paths.DATA_DIR, "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(prefix="import-", suffix=".sql", dir=tmp_dir)
     size = 0
@@ -1265,9 +1265,26 @@ async def wordpress_import(app_id: str, request: Request) -> dict:
     return {"ok": True, "size": size, "how": how}
 
 
+# Set by launch.py / the desktop app: stops the server (and every app it runs).
+request_quit = None
+
+
 @app.get("/api/health")
 async def health() -> dict:
-    return {"ok": True, "platform": osutil.platform_name()}
+    return {"ok": True, "platform": osutil.platform_name(), "can_quit": request_quit is not None,
+            "desktop": paths.FROZEN}
+
+
+@app.post("/api/quit")
+async def quit_homeport(request: Request) -> dict:
+    """Quit Homeport (stops all apps). Only from this computer's own pages."""
+    origin = request.headers.get("origin") or ""
+    if origin and not re.match(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", origin):
+        raise HTTPException(status_code=403, detail="not allowed from this page")
+    if request_quit is None:
+        raise HTTPException(status_code=501, detail="quit isn't available in this mode — press Ctrl+C in Homeport's window")
+    asyncio.get_running_loop().call_later(0.3, request_quit)
+    return {"ok": True}
 
 
 @app.get("/api/events")

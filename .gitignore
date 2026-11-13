@@ -12,3 +12,7 @@ data/*.tmp
 data/services/
 .runtime/
 data/tmp/
+
+# desktop builds
+/build/
+/dist/

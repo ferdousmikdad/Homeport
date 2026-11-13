@@ -37,10 +37,12 @@ def main() -> int:
     os.chdir(HERE)
     sys.path.insert(0, HERE)
 
+    from backend import paths
+
     # Started without a console (pythonw on Windows, login items): log to a file.
     if sys.stdout is None or sys.stderr is None:
-        os.makedirs(os.path.join(HERE, "data", "logs"), exist_ok=True)
-        log = open(os.path.join(HERE, "data", "logs", "server.log"), "a", encoding="utf-8", buffering=1)
+        os.makedirs(os.path.join(paths.DATA_DIR, "logs"), exist_ok=True)
+        log = open(os.path.join(paths.DATA_DIR, "logs", "server.log"), "a", encoding="utf-8", buffering=1)
         sys.stdout = sys.stdout or log
         sys.stderr = sys.stderr or log
     url = f"http://localhost:{args.port}/"
@@ -63,14 +65,24 @@ def main() -> int:
 
         threading.Thread(target=open_when_ready, daemon=True).start()
 
+    print(f"Homeport is running at {url}  (press Ctrl+C to stop)", flush=True)
+    serve(args.port)
+    return 0
+
+
+def serve(port: int) -> None:
+    """Run the server until Ctrl+C or "Quit Homeport" (shared with the desktop app)."""
     import uvicorn
 
-    print(f"Homeport is running at {url}  (press Ctrl+C to stop)", flush=True)
+    from backend import main as homeport
+
     # Open dashboard tabs keep a live-update stream open forever; don't let
     # them block quitting (Ctrl+C / closing the window / logout).
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=args.port, log_level="warning",
-                timeout_graceful_shutdown=3)
-    return 0
+    config = uvicorn.Config(homeport.app, host="127.0.0.1", port=port, log_level="warning",
+                            timeout_graceful_shutdown=3)
+    server = uvicorn.Server(config)
+    homeport.request_quit = lambda: setattr(server, "should_exit", True)
+    server.run()
 
 
 if __name__ == "__main__":

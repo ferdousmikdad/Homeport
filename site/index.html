@@ -44,17 +44,34 @@
       <a class="badge" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener"><b>Open source</b> Free forever · MIT · no account</a>
       <h1>Every local project.<br /><span class="soft">One home.</span></h1>
       <p class="lead">Homeport starts, watches and shares all your dev servers — Laravel, Node, Python, Rails, Go and more — from one page in your browser. It figures out how to run each project for you.</p>
-      <div class="cta-row" id="download">
-        <a class="btn lg primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">
+      <div class="dl" id="download">
+        <a class="btn lg primary" id="dl-primary" href="https://github.com/ferdousmikdad/Homeport/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-          Download Homeport
+          <span id="dl-label">Download Homeport</span>
         </a>
-        <a class="btn lg" href="/docs#install">Read the docs</a>
-      </div>
-      <p class="platforms"><span>macOS</span><span>Windows</span><span>Linux</span><span>Nothing to install first</span></p>
-      <div class="install">
-        <code id="install-cmd">git clone https://github.com/ferdousmikdad/Homeport &amp;&amp; cd Homeport &amp;&amp; ./run.sh</code>
-        <button class="btn copy" type="button" data-copy="#install-cmd">Copy</button>
+        <p class="dl-sub" id="dl-sub">Free · macOS, Windows &amp; Linux · <a href="/docs#install">Install guide</a></p>
+        <p class="dl-other" id="dl-other">
+          <a data-os="mac" href="https://github.com/ferdousmikdad/Homeport/releases/latest/download/Homeport-mac-arm64.dmg">macOS (.dmg)</a>
+          <a data-os="win" href="https://github.com/ferdousmikdad/Homeport/releases/latest/download/Homeport-Setup-x64.exe">Windows (.exe)</a>
+          <a data-os="linux" href="https://github.com/ferdousmikdad/Homeport/releases/latest/download/Homeport-x86_64.AppImage">Linux (.AppImage)</a>
+          <a data-os="deb" href="https://github.com/ferdousmikdad/Homeport/releases/latest/download/homeport_amd64.deb">Debian/Ubuntu (.deb)</a>
+        </p>
+
+        <div class="term-install">
+          <div class="term-tabs" role="tablist" aria-label="Install from the terminal">
+            <button type="button" role="tab" aria-selected="true" data-term="unix">macOS / Linux</button>
+            <button type="button" role="tab" aria-selected="false" data-term="win">Windows (PowerShell)</button>
+          </div>
+          <div class="install" data-term-panel="unix">
+            <span class="prompt">$</span><code id="cmd-unix">curl -fsSL https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.sh | sh</code>
+            <button class="btn copy" type="button" data-copy="#cmd-unix">Copy</button>
+          </div>
+          <div class="install" data-term-panel="win" hidden>
+            <span class="prompt">&gt;</span><code id="cmd-win">irm https://raw.githubusercontent.com/ferdousmikdad/Homeport/main/install.ps1 | iex</code>
+            <button class="btn copy" type="button" data-copy="#cmd-win">Copy</button>
+          </div>
+          <p class="term-note">Prefer the terminal? It installs the same app and skips the “unverified developer” prompt.</p>
+        </div>
       </div>
 
       <!-- Product mockup -->
@@ -367,7 +384,7 @@
       <h2>Give your projects a home.</h2>
       <p>Download, double-click, done. Free and open source.</p>
       <div class="cta-row">
-        <a class="btn lg primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">Download Homeport</a>
+        <a class="btn lg primary" data-dl-smart href="https://github.com/ferdousmikdad/Homeport/releases/latest">Download Homeport</a>
         <a class="btn lg" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">View on GitHub</a>
       </div>
     </div>
