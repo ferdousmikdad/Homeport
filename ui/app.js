@@ -3356,7 +3356,7 @@
   async function openAi() {
     if (!els.drawer.hidden) closeLogs();
     ai.panel.hidden = false;
-    aiFab.classList.add("open");
+    document.body.classList.add("ai-open");
     aiFab.classList.remove("unread");
     aiFab.setAttribute("aria-expanded", "true");
     ai.input.focus();
@@ -3376,7 +3376,7 @@
 
   function closeAi() {
     ai.panel.hidden = true;
-    aiFab.classList.remove("open");
+    document.body.classList.remove("ai-open");
     aiFab.setAttribute("aria-expanded", "false");
   }
 
@@ -3449,7 +3449,7 @@
   setCatsOpen(loadPref("cats_open", "1") === "1");
   catToggle.addEventListener("click", () => setCatsOpen(catToggle.getAttribute("aria-expanded") !== "true"));
 
-  // The AI assistant is optional (needs Claude Code); hide the bubble without it.
+  // The AI assistant is optional (needs Claude Code); hide its button without it.
   aiFab.hidden = true;
   request("/api/ai/status")
     .then((st) => {

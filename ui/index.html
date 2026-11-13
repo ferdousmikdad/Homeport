@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dial2" />
   <link rel="alternate icon" type="image/png" href="favicon.png?v=dial2" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=dial2" />
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=26" />
   <script>
     // Apply the saved theme before first paint to avoid a flash.
     try {
@@ -77,6 +77,7 @@
       </label>
       <button type="button" id="btn-cmdk" class="cmdk-trigger" title="Command palette">Commands <kbd class="cmdk-hint">&#8984;K</kbd></button>
       <span class="spacer"></span>
+      <button type="button" id="ai-fab" class="ai-btn" aria-controls="ai-panel" aria-expanded="false" title="Ask AI (&#8984;J)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg><span>Ask AI</span><span class="ai-fab-dot" aria-hidden="true"></span></button>
       <button type="button" id="btn-add" class="btn primary add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add app</span></button>
     </div>
 
@@ -127,46 +128,17 @@
     </div>
     </div>
   </main>
-  </div>
 
-  <!-- Log Drawer -->
-  <aside id="drawer" class="drawer" hidden aria-label="Application logs">
-    <header class="drawer-head">
-      <div class="drawer-title">
-        <h2 id="logs-title">Logs</h2>
-        <span id="logs-sub" class="muted mono"></span>
-      </div>
-      <button type="button" id="logs-close" class="icon-btn" aria-label="Close logs">&times;</button>
-    </header>
-    <div class="drawer-tools">
-      <input type="search" id="logs-filter" class="input small" placeholder="Filter lines" />
-      <label class="check small"><input type="checkbox" id="logs-autoscroll" checked /> Follow</label>
-      <label class="check small"><input type="checkbox" id="logs-wrap" checked /> Wrap</label>
-      <span class="spacer"></span>
-      <button type="button" id="logs-clear" class="btn small ghost">Clear</button>
-      <button type="button" id="logs-download" class="btn small ghost">Download</button>
-    </div>
-    <div id="logs-error-banner" class="error-banner" hidden></div>
-    <pre id="logs-body" class="logs-body wrap" tabindex="0">Loading&hellip;</pre>
-  </aside>
-
-  <!-- AI Assistant Panel -->
-  <!-- Chat bubble (bottom-right) -->
-  <button type="button" id="ai-fab" class="ai-fab" aria-label="Ask the AI assistant" aria-controls="ai-panel" aria-expanded="false" title="Ask AI (&#8984;J)">
-    <svg class="ai-fab-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4 19.5l1.4-4.6A7.5 7.5 0 1 1 20 11.5z"/><path d="M9 11.5h.01M12.5 11.5h.01M16 11.5h.01" stroke-width="2.6"/></svg>
-    <svg class="ai-fab-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-    <span class="ai-fab-dot" aria-hidden="true"></span>
-  </button>
-
-  <aside id="ai-panel" class="ai-chat" hidden aria-label="AI assistant">
+  <!-- Ask AI: docked side panel (right) -->
+  <aside id="ai-panel" class="ai-chat" hidden aria-label="Ask AI">
     <header class="ai-chat-head">
       <span class="ai-avatar" aria-hidden="true"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg></span>
       <div class="ai-chat-title">
-        <h2>Assistant</h2>
+        <h2>Ask AI</h2>
         <span id="ai-sub" class="muted"><span class="ai-online"></span>Claude &middot; runs only when you send</span>
       </div>
       <button type="button" id="ai-new" class="icon-btn" title="New chat" aria-label="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-      <button type="button" id="ai-close" class="icon-btn" aria-label="Close assistant">&times;</button>
+      <button type="button" id="ai-close" class="icon-btn" title="Close panel" aria-label="Close panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M14.5 4.5v15"/></svg></button>
     </header>
     <div class="ai-chat-tools">
       <label class="select" title="Model">
@@ -195,6 +167,29 @@
       </div>
     </form>
   </aside>
+  </div>
+
+  <!-- Log Drawer -->
+  <aside id="drawer" class="drawer" hidden aria-label="Application logs">
+    <header class="drawer-head">
+      <div class="drawer-title">
+        <h2 id="logs-title">Logs</h2>
+        <span id="logs-sub" class="muted mono"></span>
+      </div>
+      <button type="button" id="logs-close" class="icon-btn" aria-label="Close logs">&times;</button>
+    </header>
+    <div class="drawer-tools">
+      <input type="search" id="logs-filter" class="input small" placeholder="Filter lines" />
+      <label class="check small"><input type="checkbox" id="logs-autoscroll" checked /> Follow</label>
+      <label class="check small"><input type="checkbox" id="logs-wrap" checked /> Wrap</label>
+      <span class="spacer"></span>
+      <button type="button" id="logs-clear" class="btn small ghost">Clear</button>
+      <button type="button" id="logs-download" class="btn small ghost">Download</button>
+    </div>
+    <div id="logs-error-banner" class="error-banner" hidden></div>
+    <pre id="logs-body" class="logs-body wrap" tabindex="0">Loading&hellip;</pre>
+  </aside>
+
 
   <!-- Add / Edit Modal -->
   <div id="backdrop" class="backdrop" hidden>
@@ -497,6 +492,6 @@
 
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
