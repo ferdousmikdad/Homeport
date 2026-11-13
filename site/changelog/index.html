@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Changelog — Homeport</title>
+  <meta name="description" content="What's new in Homeport." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/" aria-label="Homeport home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg>
+      Homeport
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/#features">Features</a>
+      <a href="/docs">Docs</a>
+      <a href="/changelog" aria-current="page">Changelog</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn small gh-btn" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">GitHub <span class="count" data-stars></span></a>
+      <a class="btn small primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">Download</a>
+    </div>
+  </div>
+</header>
+
+<main class="container" style="padding:56px 0 96px">
+  <div class="prose" style="max-width:none;margin-bottom:24px">
+    <h1>Changelog</h1>
+    <p class="intro">New features and fixes in Homeport. Follow along on <a href="https://github.com/ferdousmikdad/Homeport/commits/main">GitHub</a>.</p>
+  </div>
+
+  <article class="release" id="v1-1-0">
+    <div class="release-meta"><span class="v">v1.1.0</span><time datetime="2026-11-13">November 13, 2026</time></div>
+    <div>
+      <h2>Nothing to install first</h2>
+      <p class="muted">Download, double-click, done — on every system.</p>
+      <h3>New</h3>
+      <ul>
+        <li><code>run.command</code>, <code>run.sh</code> and <code>run.bat</code> set everything up by themselves. If your computer has no Python, Homeport downloads a private copy into its own folder — no admin rights, nothing installed system-wide.</li>
+        <li>Starting is instant once set up; libraries are only reinstalled when they change.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>macOS: no more “install developer tools” pop-up on Macs without them.</li>
+        <li>Ubuntu/Debian: works even when <code>python3-venv</code> isn't installed.</li>
+        <li>Quitting Homeport no longer waits on open browser tabs.</li>
+      </ul>
+    </div>
+  </article>
+
+  <article class="release" id="v1-0-0">
+    <div class="release-meta"><span class="v">v1.0.0</span><time datetime="2026-11-13">November 13, 2026</time></div>
+    <div>
+      <h2>First public release</h2>
+      <p class="muted">Homeport is now free and open source under the MIT license.</p>
+      <h3>Run anything</h3>
+      <ul>
+        <li>Detects how to run Laravel, PHP, Django, FastAPI, Flask, Node (Vite, Next, Nuxt, Astro…), Rails, Go, Rust, Spring Boot, .NET, Docker Compose, static sites and more.</li>
+        <li>Project discovery: add every project in a folder at once.</li>
+        <li>Community recipes: support new frameworks with one JSON file (Hugo, Jekyll, MkDocs, Zola, Phoenix, Flutter web included).</li>
+      </ul>
+      <h3>Use</h3>
+      <ul>
+        <li>Command palette (<code>⌘K</code> / <code>Ctrl K</code>) for every action.</li>
+        <li>Named URLs like <code>http://shop.localhost:7777</code>, with live reload.</li>
+        <li>Workspaces that start related apps in order.</li>
+        <li>Git branch and changes on every card, with Pull &amp; restart.</li>
+        <li>Databases &amp; services: PostgreSQL, MySQL/MariaDB, Redis, MongoDB, Mailpit.</li>
+      </ul>
+      <h3>Share</h3>
+      <ul>
+        <li>Public links through free Cloudflare Quick Tunnels, with optional password and expiry.</li>
+        <li>Phone preview on your Wi-Fi with QR codes.</li>
+      </ul>
+      <h3>Fix</h3>
+      <ul>
+        <li>Crash fixer: plain-language causes and one-click fixes, offline.</li>
+        <li>Optional AI assistant for Claude Code users.</li>
+      </ul>
+      <h3>Everywhere</h3>
+      <ul>
+        <li>macOS, Windows and Linux, with start-at-login scripts for each.</li>
+      </ul>
+    </div>
+  </article>
+</main>
+
+<footer class="footer">
+  <div class="container footer-bottom" style="margin-top:0;border-top:0;padding-top:0">
+    <span>© 2026 The Homeport contributors · MIT</span>
+    <span><a href="/">Home</a> · <a href="/docs">Docs</a> · <a href="https://github.com/ferdousmikdad/Homeport">GitHub</a></span>
+  </div>
+</footer>
+<script src="/site.js" defer></script>
+</body>
+</html>

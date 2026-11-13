@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homeport — every local project, one home</title>
+  <meta name="description" content="Start, stop, watch and share every local dev project — Laravel, Node, Python, Rails, Go and more — from one page. Free, open source, no account. macOS, Windows and Linux." />
+  <meta property="og:title" content="Homeport — every local project, one home" />
+  <meta property="og:description" content="Free, open-source dashboard for all your local dev servers. Named URLs, phone preview, safe share links, crash fixer, databases. No account." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/" aria-label="Homeport home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg>
+      Homeport
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn small gh-btn" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
+        GitHub <span class="count" data-stars></span>
+      </a>
+      <a class="btn small primary" href="#download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <a class="badge" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener"><b>Open source</b> Free forever · MIT · no account</a>
+      <h1>Every local project.<br /><span class="soft">One home.</span></h1>
+      <p class="lead">Homeport starts, watches and shares all your dev servers — Laravel, Node, Python, Rails, Go and more — from one page in your browser. It figures out how to run each project for you.</p>
+      <div class="cta-row" id="download">
+        <a class="btn lg primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Download Homeport
+        </a>
+        <a class="btn lg" href="/docs#install">Read the docs</a>
+      </div>
+      <p class="platforms"><span>macOS</span><span>Windows</span><span>Linux</span><span>Nothing to install first</span></p>
+      <div class="install">
+        <code id="install-cmd">git clone https://github.com/ferdousmikdad/Homeport &amp;&amp; cd Homeport &amp;&amp; ./run.sh</code>
+        <button class="btn copy" type="button" data-copy="#install-cmd">Copy</button>
+      </div>
+
+      <!-- Product mockup -->
+      <div class="shot" aria-label="Homeport dashboard preview">
+        <div class="window">
+          <div class="window-bar"><i></i><i></i><i></i><span class="url">localhost:7777</span></div>
+          <div class="mock">
+            <aside class="mock-side">
+              <div class="mock-brand"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg>Homeport</div>
+              <div class="mock-item">Discover projects</div>
+              <div class="mock-item">Databases &amp; services</div>
+              <div class="mock-item active">All apps <em>6</em></div>
+              <div class="mock-item"><span class="d" style="background:var(--green)"></span>Running <em>3</em></div>
+              <div class="mock-item"><span class="d"></span>Stopped <em>2</em></div>
+              <div class="mock-item"><span class="d" style="background:var(--red)"></span>Crashed <em>1</em></div>
+              <div class="mock-label">Categories</div>
+              <div class="mock-item">Shop <em>3</em></div>
+              <div class="mock-item">Services <em>2</em></div>
+              <div class="mock-item">Docs <em>1</em></div>
+            </aside>
+            <div class="mock-main">
+              <div class="mock-top">
+                <div class="mock-search">⌕ Search… <kbd>/</kbd></div>
+                <div class="pill">Commands ⌘K</div>
+                <div class="mock-add">+ Add app</div>
+              </div>
+              <div class="mock-title"><h3>Applications</h3><span class="pill"><span class="g"></span>3 running</span></div>
+              <div class="muted" style="font-size:12px">6 apps · 3 running · 412 MB · 3.1% CPU</div>
+              <div class="mock-group">Shop</div>
+              <div class="mock-grid">
+                <div class="card">
+                  <div class="card-head"><div class="logo l1">S</div><div style="min-width:0"><div class="card-name">Storefront</div><div class="card-sub"><span class="run">● Running</span> · Next.js · storefront.localhost · ⎇ main</div></div><div class="dots">••</div></div>
+                  <div class="share-chip"><b>Public</b><code>quiet-river-lamp.trycloudflare.com</code> 🔒</div>
+                  <div class="card-foot"><div class="card-desc">Customer-facing shop.</div><div class="rb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg></div><div class="rb ink"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg></div></div>
+                </div>
+                <div class="card">
+                  <div class="card-head"><div class="logo l2">A</div><div style="min-width:0"><div class="card-name">Shop API</div><div class="card-sub"><span class="run">● Running</span> · Laravel · api.localhost · ⎇ main ●2</div></div><div class="dots">••</div></div>
+                  <div class="card-foot"><div class="card-desc"><span class="muted">UPTIME</span> 1:24:08 · <span class="muted">MEM</span> 96 MB</div><div class="rb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14M5 12h14M5 17h9"/></svg></div><div class="rb ink"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg></div></div>
+                </div>
+                <div class="card">
+                  <div class="card-head"><div class="logo l4">W</div><div style="min-width:0"><div class="card-name">Worker</div><div class="card-sub"><span class="crash">● Crashed</span> · Python</div></div><div class="dots">••</div></div>
+                  <div class="alert"><span>Python package `redis` is missing</span><span>Why?</span></div>
+                  <div class="card-foot"><div class="card-desc">Queue consumer.</div><div class="rb ink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></div></div>
+                </div>
+              </div>
+              <div class="mock-group">Services</div>
+              <div class="mock-grid">
+                <div class="card" style="min-height:96px">
+                  <div class="card-head"><div class="logo l5">P</div><div style="min-width:0"><div class="card-name">PostgreSQL</div><div class="card-sub"><span class="run">● Running</span> · port 5433</div></div><div class="dots">••</div></div>
+                </div>
+                <div class="card" style="min-height:96px">
+                  <div class="card-head"><div class="logo l3">R</div><div style="min-width:0"><div class="card-name">Redis</div><div class="card-sub">● Stopped · port 6379</div></div><div class="dots">••</div></div>
+                </div>
+                <div class="card" style="min-height:96px">
+                  <div class="card-head"><div class="logo l6">M</div><div style="min-width:0"><div class="card-name">Mailpit</div><div class="card-sub">● Stopped · inbox for test email</div></div><div class="dots">••</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features (tabs) -->
+  <section id="features" class="alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Features</span>
+        <h2>Everything your local stack needs. Nothing it doesn't.</h2>
+        <p>No config files, no accounts. Point Homeport at a folder and it does the rest.</p>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Features">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-run" id="t-run">Runs anything</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-cmd" id="t-cmd">Command palette</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-share" id="t-share">Safe sharing</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-phone" id="t-phone">Phone preview</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-fix" id="t-fix">Crash fixer</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-db" id="t-db">Databases</button>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-run" aria-labelledby="t-run">
+        <div>
+          <h3>It works out how to run your project.</h3>
+          <p>Pick a folder — or a whole <code>~/Projects</code> directory — and Homeport detects the framework, package manager, virtualenv and a free port.</p>
+          <ul>
+            <li>Installs missing dependencies on first start</li>
+            <li>Named URLs: <code>shop.localhost:7777</code> instead of port numbers</li>
+            <li>Workspaces start API → frontend → worker in order</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="share-card">
+            <strong>Discover projects</strong>
+            <div class="field"><div>~/Projects</div></div>
+            <div class="svc-list">
+              <div class="svc"><div class="logo l1">S</div><div><b>Storefront</b><span>Next.js · pnpm run dev -p 3000</span></div><em>Add</em></div>
+              <div class="svc"><div class="logo l2">A</div><div><b>Shop API</b><span>Laravel · php artisan serve --port=8000</span></div><em>Add</em></div>
+              <div class="svc"><div class="logo l4">W</div><div><b>Worker</b><span>Python · .venv/bin/python run.py</span></div><em>Add</em></div>
+              <div class="svc"><div class="logo l6">D</div><div><b>Docs</b><span>MkDocs · python -m mkdocs serve</span></div><em>Add</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-cmd" aria-labelledby="t-cmd" hidden>
+        <div>
+          <h3>Do anything in two keystrokes.</h3>
+          <p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl K</kbd>) and type. Fuzzy search across every app and action — start, stop, logs, share, open on phone, add a database.</p>
+          <ul>
+            <li>Context-aware: running apps offer Stop, crashed ones offer “Why?”</li>
+            <li>Fully keyboard-driven, updates live</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="palette">
+            <div class="palette-in">⌕ stop shop<span class="caret"></span></div>
+            <div class="palette-row on"><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg></span><span><u>Stop</u> <u>Shop</u> API</span><em>↵</em></div>
+            <div class="palette-row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8z"/></svg></span><span><u>Stop</u> workspace: <u>Shop</u></span><em>Action</em></div>
+            <div class="palette-row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg></span><span><u>Stop</u> sharing Store<u>front</u></span><em>Action</em></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-share" aria-labelledby="t-share" hidden>
+        <div>
+          <h3>Share a link. Lock it. Let it expire.</h3>
+          <p>One click gives any running app a public <code>https://</code> link through free, account-less Cloudflare Tunnels. Add a password and an expiry so nothing stays open by accident.</p>
+          <ul>
+            <li>Password page before anything reaches your app</li>
+            <li>Auto-stops after 15 min – 24 h, or when the app stops</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="share-card">
+            <strong>Share “Storefront”</strong>
+            <div class="field">Password<div>••••••••••</div></div>
+            <div class="field">Link stops after<div>1 hour</div></div>
+            <div class="share-chip" style="font-size:12.5px;padding:9px 12px"><b>Public</b><code>quiet-river-lamp.trycloudflare.com</code> 🔒 · 58m left</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-phone" aria-labelledby="t-phone" hidden>
+        <div>
+          <h3>Open it on your phone. Scan, done.</h3>
+          <p>Turn on Wi-Fi preview and scan the QR code — your app opens on any device on the same network, live reload and all.</p>
+          <ul>
+            <li>Only the app you choose is exposed, only while it's on</li>
+            <li>QR codes for public links too</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="phone-wrap">
+            <div class="qr" aria-hidden="true" id="qr"></div>
+            <div class="phone"><div class="site">Storefront</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-fix" aria-labelledby="t-fix" hidden>
+        <div>
+          <h3>Crashed? Click “Why?”.</h3>
+          <p>Homeport reads the log and explains it in plain words — port in use, missing packages, no <code>.env</code>, database down — with one-click fixes. Works offline.</p>
+          <ul>
+            <li>Install packages, create <code>.env</code>, free a port, add a database</li>
+            <li>Optional AI assistant if you use Claude Code</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="diag">
+            <strong>Python package `redis` is missing</strong>
+            <p>Install the project's requirements into its own environment (.venv).</p>
+            <code>ModuleNotFoundError: No module named 'redis'</code>
+            <span class="btn small primary">Install Python packages</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="p-db" aria-labelledby="t-db" hidden>
+        <div>
+          <h3>Databases are just apps.</h3>
+          <p>PostgreSQL, MySQL/MariaDB, Redis, MongoDB and Mailpit in one click — using what's already on your computer, or Docker. Copy the connection URL or ready-made <code>.env</code> lines.</p>
+          <ul>
+            <li>Picks free ports, keeps data in its own folder</li>
+            <li>Start, stop, logs and auto-restart like any app</li>
+          </ul>
+        </div>
+        <div class="visual">
+          <div class="svc-list">
+            <div class="svc"><div class="logo l5">P</div><div><b>PostgreSQL</b><span>postgresql://postgres@127.0.0.1:5433/postgres</span></div><em>Running</em></div>
+            <div class="svc"><div class="logo l3">R</div><div><b>Redis</b><span>redis://127.0.0.1:6379</span></div><em>Running</em></div>
+            <div class="svc"><div class="logo l6">M</div><div><b>Mailpit</b><span>Inbox at mailpit.localhost:7777</span></div><em>Running</em></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Works with -->
+  <section>
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Works with</span>
+        <h2>Whatever you build with.</h2>
+        <p>Detected automatically — and anyone can add more with a small JSON recipe.</p>
+      </div>
+      <div class="chips">
+        <span class="chip">Laravel</span><span class="chip">Symfony</span><span class="chip">PHP</span><span class="chip">WordPress</span>
+        <span class="chip">Next.js</span><span class="chip">Vite</span><span class="chip">Nuxt</span><span class="chip">Astro</span><span class="chip">Angular</span><span class="chip">Remix</span><span class="chip">SvelteKit</span><span class="chip">Express</span>
+        <span class="chip">Django</span><span class="chip">FastAPI</span><span class="chip">Flask</span><span class="chip">Streamlit</span>
+        <span class="chip">Rails</span><span class="chip">Phoenix</span><span class="chip">Go</span><span class="chip">Rust</span><span class="chip">Spring Boot</span><span class="chip">.NET</span><span class="chip">Deno</span>
+        <span class="chip">Hugo</span><span class="chip">Jekyll</span><span class="chip">MkDocs</span><span class="chip">Docker Compose</span><span class="chip">Static sites</span>
+        <span class="chip">npm · pnpm · yarn · bun</span><span class="chip">uv · Poetry · venv</span><span class="chip more">+ your recipe</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- More features -->
+  <section class="alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">And more</span>
+        <h2>Small things that add up.</h2>
+      </div>
+      <div class="bento">
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8z"/><path d="m3.5 12 8.5 4.5 8.5-4.5M3.5 16l8.5 4.5 8.5-4.5"/></svg></div><h3>Workspaces</h3><p>Group apps and start them in order, each waiting until the previous one is up.</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="8.5" r="2"/><path d="M6 7.5v9M18 10.5c0 4-4 4-10.5 6"/></svg></div><h3>Git on every card</h3><p>Branch, uncommitted changes, commits to pull — and Pull &amp; restart.</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg></div><h3>Project discovery</h3><p>Scan a folder and add every project inside in one click.</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></div><h3>Logs that stay</h3><p>Persistent, searchable logs per app — even after restarts.</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg></div><h3>Auto-restart &amp; autostart</h3><p>Bring crashed apps back, and start Homeport at login on any OS.</p></div>
+        <div class="tile"><div class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M9 2.5v2.5M15 2.5v2.5M9 19v2.5M15 19v2.5M2.5 9H5M2.5 15H5M19 9h2.5M19 15h2.5" stroke-linecap="round"/></svg></div><h3>Live CPU &amp; memory</h3><p>See what each app costs your laptop, updated every second.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section>
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">Why Homeport</span>
+        <h2>One tool instead of five.</h2>
+        <p>Most tools cover one slice. Homeport works with the projects you already have.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead><tr><th></th><th class="us">Homeport</th><th>Stack-specific apps</th><th>Tunnel tools</th><th>Terminal tabs</th></tr></thead>
+          <tbody>
+            <tr><td>Any language / framework</td><td class="us"><span class="yes">✓</span></td><td class="no">One stack</td><td class="no">—</td><td><span class="yes">✓</span></td></tr>
+            <tr><td>Detects how to run a project</td><td class="us"><span class="yes">✓</span></td><td>Partly</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Dashboard, logs, CPU/memory</td><td class="us"><span class="yes">✓</span></td><td>Partly</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Public links with password &amp; expiry</td><td class="us"><span class="yes">✓</span> free</td><td>Some, often paid</td><td>Often paid</td><td class="no">—</td></tr>
+            <tr><td>Phone preview with QR</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Crash explanations &amp; fixes</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Databases as one-click apps</td><td class="us"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>macOS, Windows &amp; Linux</td><td class="us"><span class="yes">✓</span></td><td>Varies</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td></tr>
+            <tr><td>Open source, no account</td><td class="us"><span class="yes">✓</span></td><td>Varies</td><td>Varies</td><td><span class="yes">✓</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open source -->
+  <section class="alt">
+    <div class="container oss">
+      <div>
+        <span class="eyebrow">Built in the open</span>
+        <h2>Yours to use, change and improve.</h2>
+        <p>Homeport is MIT-licensed and runs entirely on your computer — no telemetry, no account, nothing to pay. Teach it a new framework with one JSON file, report a bug, or send a pull request.</p>
+        <div class="cta-row" style="margin-top:26px">
+          <a class="btn primary" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">Star on GitHub <span class="count" data-stars></span></a>
+          <a class="btn" href="https://github.com/ferdousmikdad/Homeport/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+        </div>
+      </div>
+      <div class="visual">
+        <div class="term">
+          <div class="p">// recipes/hugo.json</div>
+          <div>{</div>
+          <div>&nbsp;&nbsp;"name": "Hugo",</div>
+          <div>&nbsp;&nbsp;"match": { "all": ["archetypes|layouts"] },</div>
+          <div>&nbsp;&nbsp;"requires": ["hugo"],</div>
+          <div>&nbsp;&nbsp;"port": 1313,</div>
+          <div>&nbsp;&nbsp;"command": <span class="url">"hugo server --port {port}"</span></div>
+          <div>}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-head"><span class="eyebrow">FAQ</span><h2>Questions, answered.</h2></div>
+      <div class="faq">
+        <details><summary>Is Homeport really free?</summary><p>Yes. It's open source under the MIT license, needs no account and runs entirely on your computer. Public share links use Cloudflare's free, account-less Quick Tunnels.</p></details>
+        <details><summary>Do I need to install Python or anything else first?</summary><p>No. The launcher uses Python if you have it; if not, it downloads a private copy into the Homeport folder — no admin rights, nothing system-wide. Your own projects still use their own tools (Node, PHP, …).</p></details>
+        <details><summary>Which systems does it run on?</summary><p>macOS, Windows and Linux. Double-click <code>run.command</code> on macOS, <code>run.bat</code> on Windows, or run <code>./run.sh</code> on Linux.</p></details>
+        <details><summary>Can other people on my network control my apps?</summary><p>No. The dashboard only listens on your own computer. Phone preview exposes just the one app you choose, on your local network, until you turn it off.</p></details>
+        <details><summary>How do share links stay safe?</summary><p>You can add a password (only a salted hash is kept) and an expiry. Links also close when you stop sharing, stop the app or quit Homeport.</p></details>
+        <details><summary>My framework isn't detected. What now?</summary><p>Type your start command once — Homeport remembers it. Or add a small JSON recipe so it's detected for everyone; see the docs.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="final alt">
+    <div class="container">
+      <h2>Give your projects a home.</h2>
+      <p>Download, double-click, done. Free and open source.</p>
+      <div class="cta-row">
+        <a class="btn lg primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">Download Homeport</a>
+        <a class="btn lg" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg>Homeport</a>
+        <p class="tag">Every local project, one home. Free and open source.</p>
+      </div>
+      <div><h4>Product</h4><ul><li><a href="#features">Features</a></li><li><a href="/docs">Docs</a></li><li><a href="/changelog">Changelog</a></li><li><a href="#download">Download</a></li></ul></div>
+      <div><h4>Community</h4><ul><li><a href="https://github.com/ferdousmikdad/Homeport">GitHub</a></li><li><a href="https://github.com/ferdousmikdad/Homeport/issues">Issues</a></li><li><a href="https://github.com/ferdousmikdad/Homeport/blob/main/CONTRIBUTING.md">Contributing</a></li><li><a href="https://github.com/ferdousmikdad/Homeport/tree/main/recipes">Recipes</a></li></ul></div>
+      <div><h4>Project</h4><ul><li><a href="https://github.com/ferdousmikdad/Homeport/blob/main/LICENSE">MIT License</a></li><li><a href="https://github.com/ferdousmikdad/Homeport/blob/main/SECURITY.md">Security</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 The Homeport contributors</span><span>Made for developers who run a lot of things.</span></div>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>

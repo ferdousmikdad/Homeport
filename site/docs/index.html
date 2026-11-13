@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs — Homeport</title>
+  <meta name="description" content="How to install and use Homeport: running projects, named URLs, sharing, phone preview, crash fixer, databases, recipes and more." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/" aria-label="Homeport home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg>
+      Homeport
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/#features">Features</a>
+      <a href="/docs" aria-current="page">Docs</a>
+      <a href="/changelog">Changelog</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn small gh-btn" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">GitHub <span class="count" data-stars></span></a>
+      <a class="btn small primary" href="https://github.com/ferdousmikdad/Homeport/archive/refs/heads/main.zip">Download</a>
+    </div>
+  </div>
+</header>
+
+<div class="container doc-layout">
+  <nav class="toc" aria-label="On this page">
+    <h4>Getting started</h4>
+    <a href="#install">Install &amp; first run</a>
+    <a href="#add">Adding apps</a>
+    <a href="#discover">Discover projects</a>
+    <h4>Everyday use</h4>
+    <a href="#palette">Command palette</a>
+    <a href="#named-urls">Named URLs</a>
+    <a href="#workspaces">Workspaces</a>
+    <a href="#logs">Logs &amp; restarts</a>
+    <a href="#git">Git on cards</a>
+    <h4>Sharing</h4>
+    <a href="#share">Public share links</a>
+    <a href="#phone">Phone preview</a>
+    <h4>When things break</h4>
+    <a href="#crash-fixer">Crash fixer</a>
+    <a href="#services">Databases &amp; services</a>
+    <h4>Advanced</h4>
+    <a href="#recipes">Recipes</a>
+    <a href="#autostart">Start at login</a>
+    <a href="#ai">AI assistant (optional)</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#uninstall">Uninstall</a>
+  </nav>
+
+  <article class="prose">
+    <h1>Homeport docs</h1>
+    <p class="intro">Everything you need to run, watch and share your local projects. Homeport runs on your own computer — no account, nothing to pay.</p>
+
+    <h2 id="install">Install &amp; first run</h2>
+    <p><strong>Nothing needs to be installed first.</strong> Download the ZIP from GitHub (or <code>git clone</code> it), then:</p>
+    <table>
+      <tr><th>System</th><th>Start Homeport</th></tr>
+      <tr><td>macOS</td><td>Double-click <code>run.command</code> (or open <code>Homeport.app</code>)</td></tr>
+      <tr><td>Windows</td><td>Double-click <code>run.bat</code></td></tr>
+      <tr><td>Linux</td><td>Run <code>./run.sh</code> in a terminal</td></tr>
+    </table>
+    <pre><code>git clone https://github.com/ferdousmikdad/Homeport
+cd Homeport
+./run.sh            # macOS / Linux  (Windows: run.bat)</code></pre>
+    <p>The first start sets everything up and then opens <code>http://localhost:7777</code>:</p>
+    <ol>
+      <li>If your computer has <strong>Python 3.9+</strong>, Homeport uses it.</li>
+      <li>If not, it downloads a <strong>private copy of Python</strong> into the hidden <code>.runtime/</code> folder — no admin rights, nothing system-wide.</li>
+      <li>It installs its few libraries into <code>.venv/</code> in the same folder.</li>
+    </ol>
+    <p>After that, starting is instant. Starting it again while it's running just opens the page. Options: <code>--port 8000</code>, <code>--no-browser</code>.</p>
+    <div class="note">Your own projects still use their own tools (Node, PHP, …) from your system. If one is missing, the crash fixer tells you what to install.</div>
+
+    <h2 id="add">Adding apps</h2>
+    <p>Click <strong>+ Add app</strong>, choose a project folder with <strong>Browse…</strong>, and Homeport fills in the start command, port and project type. You can edit any of it. Homeport recognises Laravel, Symfony, PHP, Django, FastAPI, Flask, Streamlit, Node (Vite, Next, Nuxt, Astro, Angular, CRA, Express — npm, pnpm, yarn or bun), Deno, Rails, Go, Rust, Spring Boot, .NET, Docker Compose, Makefiles, shell launchers, Procfiles and static sites — including projects one folder down (like <code>repo/app</code>).</p>
+    <p>Generated commands install missing dependencies on the first start and pick a free port, so two Laravel apps don't both claim <code>8000</code>.</p>
+
+    <h2 id="discover">Discover projects</h2>
+    <p>Sidebar → <strong>Discover projects</strong>. Pick the folder that holds your projects (for example <code>~/Projects</code>); Homeport lists every project inside, marks the ones already added, and adds the rest in one click.</p>
+
+    <h2 id="palette">Command palette</h2>
+    <p>Press <code>⌘K</code> (macOS) or <code>Ctrl K</code> (Windows/Linux) — or click <strong>Commands</strong>. Type a few letters and press <kbd>↵</kbd>:</p>
+    <ul>
+      <li><code>stop api</code> → Stop Shop API</li>
+      <li><code>logs store</code> → Logs: Storefront</li>
+      <li><code>share store</code> → Share Storefront publicly</li>
+      <li><code>add redis</code> → Add Redis service</li>
+    </ul>
+    <p>Press <code>/</code> to filter the cards instead.</p>
+
+    <h2 id="named-urls">Named URLs</h2>
+    <p>Every running app is also available at <code>http://&lt;app-id&gt;.localhost:7777</code> — e.g. <code>http://storefront.localhost:7777</code>. All modern browsers and operating systems send <code>*.localhost</code> to your own computer, so there's nothing to configure. Live reload (WebSockets) keeps working.</p>
+
+    <h2 id="workspaces">Workspaces</h2>
+    <p>Give related apps the same category (API, frontend, worker…). Hover the category heading and press <strong>▶</strong>: Homeport starts them one by one in your order, each waiting until the previous one is up. <strong>■</strong> stops them in reverse. Drag cards to change the order.</p>
+
+    <h2 id="logs">Logs &amp; restarts</h2>
+    <p>Each app's output is saved to <code>data/logs/</code>, so logs survive restarts. Open them from the card (☰), search, download or clear. In <strong>Edit</strong> you can turn on <em>auto-restart</em> (bring crashed apps back), <em>start with Homeport</em>, and crash notifications.</p>
+
+    <h2 id="git">Git on cards</h2>
+    <p>Cards show the branch, uncommitted changes (<code>●2</code>) and commits to pull (<code>↓1</code>). <strong>••</strong> → <strong>Pull &amp; restart</strong> runs <code>git pull --ff-only</code> — it never merges or overwrites your work — and restarts the app if it was running.</p>
+
+    <h2 id="share">Public share links</h2>
+    <p>Start an app, click <strong>🌐 Share</strong>, then <strong>Start sharing</strong>. You get a public <code>https://…trycloudflare.com</code> link within seconds — through Cloudflare's free, account-less Quick Tunnels.</p>
+    <ul>
+      <li><strong>Password</strong> (optional): visitors see a password page first. Only a salted hash is stored.</li>
+      <li><strong>Expiry</strong>: 15 minutes to 24 hours, or never. The link also stops when you stop the app or quit Homeport.</li>
+      <li>The first time, the dialog offers to install Cloudflare's open-source <code>cloudflared</code> (about 40 MB) into <code>bin/</code>.</li>
+    </ul>
+    <div class="note">Your computer must stay on and awake while the link is in use. Quick-tunnel addresses change each time you share.</div>
+
+    <h2 id="phone">Phone preview</h2>
+    <p><strong>••</strong> → <strong>Open on phone…</strong> → <strong>Turn on</strong>. Scan the QR code with your phone's camera — the app opens on any device on the same Wi-Fi. Only that app is exposed, only until you turn it off or the app stops. The first time, your computer may ask to allow incoming connections.</p>
+
+    <h2 id="crash-fixer">Crash fixer</h2>
+    <p>When an app stops, click <strong>Why?</strong> on its card. Homeport reads the latest run's log and explains the cause with one-click fixes:</p>
+    <table>
+      <tr><th>Problem</th><th>Fix</th></tr>
+      <tr><td>Port already in use</td><td>Stop what's using it, or change the port</td></tr>
+      <tr><td>Node / Python / PHP / Ruby packages missing</td><td>Install them (npm/pnpm/yarn/bun, pip/uv, composer, bundler)</td></tr>
+      <tr><td><code>.env</code> missing</td><td>Create it from <code>.env.example</code></td></tr>
+      <tr><td>Laravel app key not set</td><td>Generate it</td></tr>
+      <tr><td>Database isn't running</td><td>Add it as a service</td></tr>
+      <tr><td>Tool not installed</td><td>Explains what to install and where</td></tr>
+    </table>
+    <p>Fixes are predefined actions — Homeport never runs text taken from a log.</p>
+
+    <h2 id="services">Databases &amp; services</h2>
+    <p>Sidebar → <strong>Databases &amp; services</strong>: PostgreSQL, MySQL/MariaDB, Redis, MongoDB and Mailpit (a test inbox for outgoing email). Each runs with the server already installed on your computer, or via Docker. They're normal apps in a <strong>Services</strong> group: start/stop, logs, free ports, data in <code>data/services/</code>.</p>
+    <p><strong>••</strong> → <strong>Copy connection URL</strong> or <strong>Copy .env settings</strong> gives you ready-made lines such as:</p>
+    <pre><code>DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5433
+DB_DATABASE=postgres
+DB_USERNAME=postgres
+DATABASE_URL=postgresql://postgres@127.0.0.1:5433/postgres</code></pre>
+
+    <h2 id="recipes">Recipes</h2>
+    <p>Teach Homeport a new kind of project with one JSON file — in <code>recipes/</code> (shared via pull request) or <code>~/.homeport/recipes/</code> (just for you).</p>
+    <pre><code>{
+  "name": "Hugo",
+  "match": { "all": ["archetypes|layouts|content"] },
+  "requires": ["hugo"],
+  "port": 1313,
+  "command": "hugo server --port {port} --bind 127.0.0.1"
+}</code></pre>
+    <p><code>match.all</code> / <code>any</code> / <code>none</code> check files (<code>a|b</code> = either, globs allowed); <code>contains</code> checks a file for a pattern; <code>setup</code> runs steps only when something is missing; <code>command_windows</code> overrides for Windows. See <a href="https://github.com/ferdousmikdad/Homeport/blob/main/recipes/README.md">recipes/README.md</a>.</p>
+
+    <h2 id="autostart">Start at login</h2>
+    <table>
+      <tr><th>System</th><th>Install</th><th>Remove</th></tr>
+      <tr><td>macOS</td><td><code>scripts/install_autostart.sh</code></td><td><code>scripts/uninstall_autostart.sh</code></td></tr>
+      <tr><td>Windows</td><td><code>scripts\install_autostart_windows.bat</code></td><td><code>scripts\uninstall_autostart_windows.bat</code></td></tr>
+      <tr><td>Linux</td><td><code>scripts/install_autostart_linux.sh</code></td><td><code>scripts/uninstall_autostart_linux.sh</code></td></tr>
+    </table>
+
+    <h2 id="ai">AI assistant (optional)</h2>
+    <p>If you already use <a href="https://claude.com/claude-code">Claude Code</a>, a chat bubble appears in the corner (<code>⌘J</code> / <code>Ctrl J</code>) that can diagnose and fix apps. Without it, the bubble stays hidden and everything else works the same.</p>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <h3>The page looks broken after an update</h3>
+    <p>Reload with <code>⌘⇧R</code> / <code>Ctrl Shift R</code>.</p>
+    <h3>Named URLs don't open in Safari</h3>
+    <p>Use <code>http://localhost:&lt;port&gt;</code> from the card, or another browser; some older Safari versions don't resolve <code>*.localhost</code>.</p>
+    <h3>“Port 8000 is used by …”</h3>
+    <p>Another program holds the port. Use <strong>Kill &amp; start</strong> (it shows exactly which process first) or change the port in <strong>Edit</strong>.</p>
+    <h3>Windows: “Python was not found”</h3>
+    <p>Just run <code>run.bat</code> again — it downloads a private Python automatically. If your network blocks GitHub downloads, install Python from python.org and tick “Add python.exe to PATH”.</p>
+
+    <h2 id="uninstall">Uninstall</h2>
+    <p>Quit Homeport (<code>Ctrl C</code> in its window), remove start-at-login if you installed it, then delete the Homeport folder. Everything — the private Python, libraries, logs and service data — lives inside it.</p>
+  </article>
+</div>
+
+<footer class="footer">
+  <div class="container footer-bottom" style="margin-top:0;border-top:0;padding-top:0">
+    <span>© 2026 The Homeport contributors · MIT</span>
+    <span><a href="https://github.com/ferdousmikdad/Homeport/edit/main/site/docs/index.html">Edit this page on GitHub</a></span>
+  </div>
+</footer>
+<script src="/site.js" defer></script>
+</body>
+</html>
