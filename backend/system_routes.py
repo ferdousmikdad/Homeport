@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -90,10 +91,10 @@ async def open_app_target(app_id: str, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="request body must be valid JSON") from None
 
     target = body.get("target")
-    if target not in ("browser", "finder", "terminal"):
+    if target not in ("browser", "finder", "terminal", "app"):
         raise HTTPException(
             status_code=400,
-            detail="target must be one of 'browser', 'finder', 'terminal'",
+            detail="target must be one of 'browser', 'finder', 'terminal', 'app'",
         )
 
     if get_app_config is None:
@@ -120,6 +121,19 @@ async def open_app_target(app_id: str, request: Request) -> dict:
             return {"ok": True, "target": "terminal", "path": path}
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"failed to open a terminal: {exc}") from exc
+
+    elif target == "app":
+        # The app's named URL (http://<id>.localhost:<homeport port>/) in a new
+        # browser tab. Opened by Homeport itself, so popup blockers don't apply.
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", app_id):
+            raise HTTPException(status_code=400, detail="app id can't be used in a URL")
+        port = request.url.port or 80
+        url = f"http://{app_id}.localhost:{port}/"
+        try:
+            await asyncio.to_thread(osutil.open_url, url)
+            return {"ok": True, "target": "app", "url": url}
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"failed to open browser: {exc}") from exc
 
     elif target == "browser":
         port = None

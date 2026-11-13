@@ -1013,10 +1013,36 @@
     );
   }
 
+  // Apps the user just started: open them in a new tab as soon as they answer.
+  const pendingOpen = new Map(); // id -> give-up time
+
+  function watchToOpen(app) {
+    if (!app || app.service || !(app.port || app.detected_port || app.command)) return;
+    pendingOpen.set(app.id, Date.now() + 3 * 60 * 1000);
+  }
+
+  function openReadyApps() {
+    if (!pendingOpen.size) return;
+    const now = Date.now();
+    for (const [id, until] of pendingOpen) {
+      const app = findApp(id);
+      if (!app || now > until || app.status === "stopped" || app.status === "crashed") {
+        pendingOpen.delete(id);
+      } else if (app.port_ready) {
+        pendingOpen.delete(id);
+        request("/api/apps/" + encodeURIComponent(id) + "/open", {
+          method: "POST",
+          body: JSON.stringify({ target: "app" }),
+        }).catch(() => window.open(namedUrl(app), "_blank", "noopener"));
+      }
+    }
+  }
+
   async function runAction(id, action, killConflict) {
     try {
       const query = killConflict ? "?kill_conflict=1" : "";
       const updated = await request("/api/apps/" + encodeURIComponent(id) + "/" + action + query, { method: "POST" });
+      if (action === "start") watchToOpen(updated);
       replaceAppState(updated);
       const verb = { start: "Started", stop: "Stopped", restart: "Restarted" }[action] || action;
       toast(verb + " " + updated.name, "ok");
@@ -1041,9 +1067,7 @@
         toast(cur.name + " has no start command", "warn");
         return;
       }
-      const started = await runAction(id, "start");
-      if (!started) return;
-      window.setTimeout(() => window.open(namedUrl(cur), "_blank", "noopener"), 1200);
+      await runAction(id, "start"); // opens by itself once it's ready
     } else {
       window.open(namedUrl(cur), "_blank", "noopener");
     }
@@ -1607,11 +1631,13 @@
     if (idx >= 0) state.apps[idx] = updated;
     else state.apps.push(updated);
     render();
+    openReadyApps();
   }
 
   function updateAllApps(apps) {
     state.apps = Array.isArray(apps) ? apps : [];
     render();
+    openReadyApps();
   }
 
   function renderSummary() {

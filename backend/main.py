@@ -307,6 +307,7 @@ async def _build_state(cfg: dict, now: float) -> dict:
         "cpu_percent": stats.get("cpu_percent"),
         "mem_mb": stats.get("mem_mb"),
         "detected_port": detected_port,
+        "port_ready": bool(port_ok) and status == "running",
         "healthy": healthy,
         "restarts": _restart_counts.get(app_id, 0),
         "last_exit_code": info.get("exit_code"),

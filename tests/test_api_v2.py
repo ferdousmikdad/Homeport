@@ -85,8 +85,28 @@ def test_open_target_endpoint(client, demo_dir, long_command, monkeypatch):
     assert res_browser.status_code == 200
     assert calls[-1] == ("url", "http://127.0.0.1:8899/")
 
+    res_app = client.post(f"/api/apps/{app_id}/open", json={"target": "app"}, headers={"Host": "localhost:7777"})
+    assert res_app.status_code == 200
+    assert calls[-1] == ("url", f"http://{app_id}.localhost:7777/")
+
     res_bad = client.post(f"/api/apps/{app_id}/open", json={"target": "invalid"})
     assert res_bad.status_code == 400
+
+
+def test_port_ready_only_when_port_answers(client, demo_dir):
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    port = srv.getsockname()[1]
+    srv.close()
+    cmd = f'"{sys.executable}" -m http.server {port} --bind 127.0.0.1'
+    app_id = client.post("/api/apps", json={"name": "ReadyApp", "path": str(demo_dir), "command": cmd, "port": port}).json()["id"]
+    first = client.post(f"/api/apps/{app_id}/start").json()
+    assert first["port_ready"] is False  # just launched, not answering yet
+    try:
+        assert wait_until(lambda: client.get(f"/api/apps/{app_id}").json()["port_ready"], timeout=20)
+    finally:
+        client.post(f"/api/apps/{app_id}/stop")
+    assert client.get(f"/api/apps/{app_id}").json()["port_ready"] is False
 
 
 def test_patch_running_returns_needs_restart(client, demo_dir, long_command):
