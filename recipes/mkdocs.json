@@ -1,0 +1,6 @@
+{
+  "name": "MkDocs",
+  "match": {"all": ["mkdocs.yml|mkdocs.yaml"]},
+  "port": 8000,
+  "command": "{python} -m mkdocs serve -a 127.0.0.1:{port}"
+}

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+psutil
+httpx
+pytest
+eval_type_backport
+websockets
+segno

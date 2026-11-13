@@ -1,0 +1,11 @@
+{
+  "name": "Phoenix",
+  "match": {
+    "all": ["mix.exs"],
+    "contains": {"mix.exs": ":phoenix"}
+  },
+  "port": 4000,
+  "setup": [{"unless": "deps", "run": "mix deps.get"}],
+  "command": "PORT={port} mix phx.server",
+  "command_windows": "set PORT={port}&& mix phx.server"
+}

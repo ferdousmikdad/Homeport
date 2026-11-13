@@ -1,0 +1,10 @@
+{
+  "name": "Hugo",
+  "match": {
+    "all": ["archetypes|layouts|content"],
+    "any": ["hugo.toml", "hugo.yaml", "hugo.json", "config.toml", "config.yaml"]
+  },
+  "requires": ["hugo"],
+  "port": 1313,
+  "command": "hugo server --port {port} --bind 127.0.0.1"
+}

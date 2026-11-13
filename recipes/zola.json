@@ -1,0 +1,10 @@
+{
+  "name": "Zola",
+  "match": {
+    "all": ["config.toml", "templates|content"],
+    "contains": {"config.toml": "base_url"}
+  },
+  "requires": ["zola"],
+  "port": 1111,
+  "command": "zola serve --port {port} --interface 127.0.0.1"
+}

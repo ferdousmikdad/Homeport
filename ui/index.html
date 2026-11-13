@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Homeport</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dial2" />
+  <link rel="alternate icon" type="image/png" href="favicon.png?v=dial2" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=dial2" />
+  <link rel="stylesheet" href="style.css?v=22" />
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      var t = localStorage.getItem("lm_theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Navigation">
+    <div class="side-brand">
+      <a class="brand" href="./" aria-label="Homeport home"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg><span class="brand-word">Homeport</span></a>
+      <button type="button" id="btn-collapse" class="icon-btn" title="Hide sidebar" aria-label="Hide sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
+    </div>
+
+    <button type="button" id="btn-discover" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13.5" r="2.6"/><path d="m14 15.5 1.8 1.8"/></svg><span>Discover projects</span></button>
+    <button type="button" id="btn-services" class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v13c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-13M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></svg><span>Databases &amp; services</span></button>
+
+    <nav class="side-nav" id="status-seg" aria-label="Status filter">
+      <button type="button" class="nav-item active" data-filter="all"><span class="nav-ico ico-all" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></span>All apps <span id="count-all" class="count">0</span></button>
+      <button type="button" class="nav-item" data-filter="running"><span class="nav-ico ico-running" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8v6.4l5-3.2z" fill="currentColor"/></svg></span>Running <span id="count-running" class="count">0</span></button>
+      <button type="button" class="nav-item" data-filter="stopped"><span class="nav-ico ico-stopped" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><rect x="9.3" y="9.3" width="5.4" height="5.4" rx="1" fill="currentColor" stroke="none"/></svg></span>Stopped <span id="count-stopped" class="count">0</span></button>
+      <button type="button" class="nav-item" data-filter="crashed"><span class="nav-ico ico-crashed" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.2M12 17.2v.1"/></svg></span>Crashed <span id="count-crashed" class="count">0</span></button>
+    </nav>
+
+    <section class="side-section" id="cat-section">
+      <button type="button" class="side-section-head" id="cat-toggle" aria-expanded="true" aria-controls="cat-nav">
+        <span>Categories</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+      </button>
+      <nav class="cat-nav" id="cat-nav" aria-label="Categories"></nav>
+    </section>
+    <select id="category-filter" aria-label="Filter by category" hidden></select>
+
+    <div class="side-foot">
+      <div class="side-card">
+        <span class="side-card-mark"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg></span>
+        <div class="side-card-text">
+          <strong>Homeport</strong>
+          <span id="conn" class="conn connecting" title="Connection status"><span class="conn-dot" aria-hidden="true"></span><span id="conn-text">Connecting&hellip;</span></span>
+        </div>
+        <div class="menu-wrap">
+          <button type="button" id="btn-bulk" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Actions for all apps" title="All apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+          <div id="bulk-menu" class="menu menu-right menu-up" role="menu" hidden>
+            <button type="button" role="menuitem" id="btn-start-all">Start all</button>
+            <button type="button" role="menuitem" id="btn-stop-all">Stop all</button>
+            <hr />
+            <button type="button" role="menuitem" id="btn-terminate-all" class="danger">Force-terminate all&hellip;</button>
+          </div>
+        </div>
+      </div>
+      <div class="side-foot-icons">
+        <button type="button" id="btn-theme" class="icon-btn" aria-label="Toggle light/dark theme" title="Toggle theme"></button>
+        <a class="icon-btn" href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/" target="_blank" rel="noopener noreferrer" title="About public share links" aria-label="About public share links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.1 2.2c-.6.3-.9.8-.9 1.4v.4M12 16.6v.1"/></svg></a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-panel">
+    <div class="panel-bar">
+      <button type="button" id="btn-sidebar" class="square-btn" title="Toggle sidebar" aria-label="Toggle sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button>
+      <label class="top-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg>
+        <input type="search" id="search-input" placeholder="Search…" autocomplete="off" aria-label="Search apps" />
+        <kbd class="search-kbd" title="Press / to filter apps">/</kbd>
+      </label>
+      <button type="button" id="btn-cmdk" class="cmdk-trigger" title="Command palette">Commands <kbd class="cmdk-hint">&#8984;K</kbd></button>
+      <span class="spacer"></span>
+      <button type="button" id="btn-add" class="btn primary add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add app</span></button>
+    </div>
+
+    <div class="main">
+    <header class="page-head">
+      <div class="page-titles">
+        <div class="title-row">
+          <h1>Applications</h1>
+          <span class="run-pill title-pill" title="Apps running now"><span class="run-dot" aria-hidden="true"></span><b id="pill-running">0</b>&nbsp;running</span>
+        </div>
+        <p id="summary" class="summary">&nbsp;</p>
+      </div>
+      <div class="toolbar">
+        <label class="select pill-select" title="Sort apps">
+          <span class="select-label">Sort</span>
+            <select id="sort-select" aria-label="Sort apps">
+              <option value="manual">Manual (drag)</option>
+              <option value="name-asc">Name A&ndash;Z</option>
+              <option value="name-desc">Name Z&ndash;A</option>
+              <option value="path">Folder path</option>
+              <option value="created-desc">Folder created &middot; newest</option>
+              <option value="created-asc">Folder created &middot; oldest</option>
+              <option value="updated-desc">Folder modified &middot; recent</option>
+              <option value="status">Status</option>
+              <option value="port">Port</option>
+              <option value="mem">Memory use</option>
+            </select>
+        </label>
+        <button type="button" id="btn-group" class="btn small toggle" aria-pressed="false" title="Group apps by category">Group</button>
+        <div class="seg seg-icons" id="view-seg" role="group" aria-label="Layout">
+          <button type="button" data-view="grid" title="Grid" aria-label="Grid layout"></button>
+          <button type="button" data-view="list" title="List" aria-label="List layout"></button>
+        </div>
+      </div>
+    </header>
+
+    <section class="kpis" aria-label="Summary">
+      <div class="kpi"><span class="kpi-value" id="kpi-apps">0</span><span class="kpi-label">Apps</span><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></span></div>
+      <div class="kpi"><span class="kpi-value" id="kpi-running">0</span><span class="kpi-label">Running</span><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8v6.4l5-3.2z" fill="currentColor"/></svg></span></div>
+      <div class="kpi"><span class="kpi-value" id="kpi-shared">0</span><span class="kpi-label">Shared</span><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5a13 13 0 0 1 0 17M12 3.5a13 13 0 0 0 0 17"/></svg></span></div>
+      <div class="kpi"><span class="kpi-value" id="kpi-mem">0</span><span class="kpi-label">Memory</span><span class="kpi-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M9 2.5v2.5M15 2.5v2.5M9 19v2.5M15 19v2.5M2.5 9H5M2.5 15H5M19 9h2.5M19 15h2.5" stroke-linecap="round"/></svg></span></div>
+    </section>
+
+    <section id="grid" class="apps grid-view" aria-live="polite"></section>
+    <div id="empty" class="empty" hidden>
+      <p id="empty-title" class="empty-title">No apps yet</p>
+      <p id="empty-text" class="empty-text">Add a local project to start, stop and monitor it from here.</p>
+    </div>
+    </div>
+  </main>
+  </div>
+
+  <!-- Log Drawer -->
+  <aside id="drawer" class="drawer" hidden aria-label="Application logs">
+    <header class="drawer-head">
+      <div class="drawer-title">
+        <h2 id="logs-title">Logs</h2>
+        <span id="logs-sub" class="muted mono"></span>
+      </div>
+      <button type="button" id="logs-close" class="icon-btn" aria-label="Close logs">&times;</button>
+    </header>
+    <div class="drawer-tools">
+      <input type="search" id="logs-filter" class="input small" placeholder="Filter lines" />
+      <label class="check small"><input type="checkbox" id="logs-autoscroll" checked /> Follow</label>
+      <label class="check small"><input type="checkbox" id="logs-wrap" checked /> Wrap</label>
+      <span class="spacer"></span>
+      <button type="button" id="logs-clear" class="btn small ghost">Clear</button>
+      <button type="button" id="logs-download" class="btn small ghost">Download</button>
+    </div>
+    <div id="logs-error-banner" class="error-banner" hidden></div>
+    <pre id="logs-body" class="logs-body wrap" tabindex="0">Loading&hellip;</pre>
+  </aside>
+
+  <!-- AI Assistant Panel -->
+  <!-- Chat bubble (bottom-right) -->
+  <button type="button" id="ai-fab" class="ai-fab" aria-label="Ask the AI assistant" aria-controls="ai-panel" aria-expanded="false" title="Ask AI (&#8984;J)">
+    <svg class="ai-fab-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4 19.5l1.4-4.6A7.5 7.5 0 1 1 20 11.5z"/><path d="M9 11.5h.01M12.5 11.5h.01M16 11.5h.01" stroke-width="2.6"/></svg>
+    <svg class="ai-fab-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    <span class="ai-fab-dot" aria-hidden="true"></span>
+  </button>
+
+  <aside id="ai-panel" class="ai-chat" hidden aria-label="AI assistant">
+    <header class="ai-chat-head">
+      <span class="ai-avatar" aria-hidden="true"><svg class="knob" viewBox="0 0 64 64" aria-hidden="true"><circle class="knob-disc" cx="32" cy="32" r="31"/><circle class="knob-ring" cx="32" cy="32" r="16" fill="none" stroke-width="6"/><path class="knob-hand" d="M32 32 L40.5 23.5" stroke-width="6" stroke-linecap="round"/></svg></span>
+      <div class="ai-chat-title">
+        <h2>Assistant</h2>
+        <span id="ai-sub" class="muted"><span class="ai-online"></span>Claude &middot; runs only when you send</span>
+      </div>
+      <button type="button" id="ai-new" class="icon-btn" title="New chat" aria-label="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+      <button type="button" id="ai-close" class="icon-btn" aria-label="Close assistant">&times;</button>
+    </header>
+    <div class="ai-chat-tools">
+      <label class="select" title="Model">
+        <span class="select-label">Model</span>
+        <select id="ai-model" aria-label="Model">
+          <option value="sonnet">Sonnet</option>
+          <option value="opus">Opus</option>
+          <option value="haiku">Haiku</option>
+          <option value="">Account default</option>
+          <option value="__custom">Custom&hellip;</option>
+        </select>
+      </label>
+      <input type="text" id="ai-model-custom" class="input small mono" placeholder="claude-opus-5-5" hidden spellcheck="false" />
+      <div class="seg" id="ai-mode" role="group" aria-label="Mode">
+        <button type="button" data-mode="act" title="Can add/edit apps, fix ports, change files">Act</button>
+        <button type="button" data-mode="ask" title="Read-only: answers and diagnoses, changes nothing">Ask only</button>
+      </div>
+    </div>
+    <div id="ai-log" class="ai-log" aria-live="polite"></div>
+    <form id="ai-form" class="ai-form" autocomplete="off">
+      <textarea id="ai-input" class="input" rows="2" placeholder="Ask anything about your apps&hellip;"></textarea>
+      <div class="ai-form-row">
+        <span id="ai-meta" class="muted ai-meta"></span>
+        <button type="button" id="ai-reload" class="btn small" hidden>Reload page</button>
+        <button type="submit" id="ai-send" class="btn primary small">Send</button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- Add / Edit Modal -->
+  <div id="backdrop" class="backdrop" hidden>
+    <form id="app-form" class="modal" autocomplete="off" novalidate>
+      <header class="modal-head">
+        <h2 id="modal-title">Add app</h2>
+        <button type="button" id="modal-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+
+      <input type="hidden" id="f-id" value="" />
+
+      <div class="form-body">
+        <div class="row2">
+          <label class="field">
+            <span>Name</span>
+            <input id="f-name" name="name" type="text" placeholder="My App" required />
+          </label>
+          <label class="field">
+            <span>Category</span>
+            <input id="f-category" name="category" type="text" list="category-list" placeholder="e.g. Work, Tools" />
+            <datalist id="category-list"></datalist>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Description</span>
+          <textarea id="f-description" name="description" rows="2" placeholder="What does this app do?"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Folder</span>
+          <div class="input-group">
+            <input id="f-path" name="path" type="text" placeholder="/Users/me/projects/app" required spellcheck="false" class="mono" />
+            <button type="button" id="btn-browse" class="btn">Browse&hellip;</button>
+          </div>
+          <small id="f-path-hint" class="hint"></small>
+        </label>
+
+        <label class="field">
+          <span>Command</span>
+          <input id="f-command" name="command" type="text" placeholder="python3 run.py" spellcheck="false" class="mono" />
+        </label>
+
+        <div class="row2">
+          <label class="field">
+            <span>Port</span>
+            <input id="f-port" name="port" type="number" min="0" max="65535" placeholder="8080" />
+          </label>
+          <label class="field">
+            <span>Health URL</span>
+            <input id="f-health" name="health_url" type="text" placeholder="http://localhost:8080/health" spellcheck="false" />
+          </label>
+        </div>
+
+        <div class="env-group">
+          <div class="env-header">
+            <span>Environment variables</span>
+            <button type="button" id="btn-add-env" class="btn small ghost">Add variable</button>
+          </div>
+          <div id="env-rows" class="env-rows"></div>
+        </div>
+
+        <div class="check-group">
+          <label class="check"><input id="f-auto" name="auto_restart" type="checkbox" /> Restart automatically if it crashes</label>
+          <label class="check"><input id="f-autostart" name="autostart" type="checkbox" /> Start when the manager starts</label>
+          <label class="check"><input id="f-notify" name="notify" type="checkbox" checked /> Notify me when it crashes</label>
+        </div>
+
+        <div id="modal-meta-box" class="modal-meta" hidden>
+          Folder created <span id="f-created-at">&mdash;</span> &middot; modified <span id="f-updated-at">&mdash;</span>
+        </div>
+      </div>
+
+      <footer class="modal-foot">
+        <button type="button" id="modal-cancel" class="btn ghost">Cancel</button>
+        <button type="submit" id="modal-submit" class="btn primary">Add app</button>
+      </footer>
+    </form>
+  </div>
+
+  <!-- Folder Browser Modal (in-page fallback) -->
+  <div id="browse-backdrop" class="backdrop" hidden>
+    <div class="modal browse-dialog">
+      <header class="modal-head">
+        <h2>Choose a folder</h2>
+        <button type="button" id="browse-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <nav id="browse-crumbs" class="crumbs" aria-label="Folder path"></nav>
+      <div id="browse-list" class="browse-list" tabindex="0"></div>
+      <footer class="modal-foot">
+        <span id="browse-selected-path" class="browse-selected mono"></span>
+        <button type="button" id="browse-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="browse-select" class="btn primary">Select folder</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="confirm-backdrop" class="backdrop" hidden>
+    <div class="modal confirm-dialog" role="alertdialog" aria-labelledby="confirm-title">
+      <header class="modal-head">
+        <h2 id="confirm-title">Confirm</h2>
+      </header>
+      <p id="confirm-message" class="confirm-body"></p>
+      <footer class="modal-foot">
+        <button type="button" id="confirm-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="confirm-ok" class="btn primary">Confirm</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Share dialog -->
+  <div id="share-backdrop" class="backdrop" hidden>
+    <div class="modal share-dialog" role="dialog" aria-labelledby="share-title">
+      <header class="modal-head">
+        <h2 id="share-title">Share app</h2>
+        <button type="button" id="share-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <p class="share-warn">Anyone with the link can open this app from anywhere while sharing is on. Add a password for anything private.</p>
+
+        <div id="share-install" class="share-box" hidden>
+          <div>
+            <strong>Install Cloudflare Tunnel</strong>
+            <p class="hint">Free and account-less. Downloads Cloudflare&rsquo;s open-source <code>cloudflared</code> (about 40&nbsp;MB) into this project&rsquo;s <code>bin/</code> folder.</p>
+          </div>
+          <button type="button" id="share-install-btn" class="btn small primary">Install</button>
+        </div>
+
+        <label class="field">
+          <span>Password <em class="muted">(optional)</em></span>
+          <input type="password" id="share-password" class="input" placeholder="Leave empty for an open link" autocomplete="new-password" minlength="4" />
+        </label>
+        <label class="field">
+          <span>Link stops after</span>
+          <select id="share-expiry" class="input">
+            <option value="">Never (until I stop it)</option>
+            <option value="15">15 minutes</option>
+            <option value="60" selected>1 hour</option>
+            <option value="480">8 hours</option>
+            <option value="1440">24 hours</option>
+          </select>
+        </label>
+        <p class="hint">Public links are free Cloudflare Quick Tunnels: no account, nothing to pay. The address changes each time you share.</p>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" id="share-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="share-start" class="btn primary">Start sharing</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Phone preview dialog -->
+  <div id="phone-backdrop" class="backdrop" hidden>
+    <div class="modal phone-dialog" role="dialog" aria-labelledby="phone-title">
+      <header class="modal-head">
+        <h2 id="phone-title">Open on your phone</h2>
+        <button type="button" id="phone-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <section class="phone-block">
+          <div class="phone-block-head">
+            <div>
+              <strong>Same Wi-Fi</strong>
+              <p class="hint">Fast, private: only devices on your network can open it.</p>
+            </div>
+            <button type="button" id="phone-lan-toggle" class="btn small primary">Turn on</button>
+          </div>
+          <div id="phone-lan-body" class="phone-qr-row" hidden>
+            <img id="phone-lan-qr" class="qr" alt="QR code for the Wi-Fi link" />
+            <div class="phone-qr-text">
+              <a id="phone-lan-url" class="mono" target="_blank" rel="noopener noreferrer"></a>
+              <p class="hint">Scan with your phone&rsquo;s camera. Your computer may ask to allow incoming connections the first time.</p>
+            </div>
+          </div>
+        </section>
+        <section class="phone-block" id="phone-public">
+          <div class="phone-block-head">
+            <div>
+              <strong>Anywhere</strong>
+              <p class="hint" id="phone-public-hint">Share the app first to get a public link.</p>
+            </div>
+          </div>
+          <div id="phone-public-body" class="phone-qr-row" hidden>
+            <img id="phone-public-qr" class="qr" alt="QR code for the public link" />
+            <div class="phone-qr-text">
+              <a id="phone-public-url" class="mono" target="_blank" rel="noopener noreferrer"></a>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crash diagnosis dialog -->
+  <div id="diag-backdrop" class="backdrop" hidden>
+    <div class="modal diag-dialog" role="dialog" aria-labelledby="diag-title">
+      <header class="modal-head">
+        <h2 id="diag-title">Why did it stop?</h2>
+        <button type="button" id="diag-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <div id="diag-list" class="diag-list"><p class="hint">Reading the logs&hellip;</p></div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" id="diag-logs" class="btn ghost">Open logs</button>
+        <span class="spacer"></span>
+        <button type="button" id="diag-ai" class="btn" hidden>Ask AI to fix</button>
+        <button type="button" id="diag-retry" class="btn primary">Try starting again</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Discover projects dialog -->
+  <div id="disc-backdrop" class="backdrop" hidden>
+    <div class="modal disc-dialog" role="dialog" aria-labelledby="disc-title">
+      <header class="modal-head">
+        <h2 id="disc-title">Discover projects</h2>
+        <button type="button" id="disc-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <p class="hint">Pick the folder that holds your projects (e.g. ~/Projects). Homeport finds every project inside and works out how to run each one.</p>
+        <div class="input-group">
+          <input type="text" id="disc-path" class="input" placeholder="/Users/you/Projects" spellcheck="false" />
+          <button type="button" id="disc-browse" class="btn">Browse&hellip;</button>
+          <button type="button" id="disc-scan" class="btn primary">Scan</button>
+        </div>
+        <div id="disc-list" class="disc-list"></div>
+      </div>
+      <footer class="modal-foot">
+        <label class="check small"><input type="checkbox" id="disc-all" /> Select all</label>
+        <span class="spacer"></span>
+        <button type="button" id="disc-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="disc-add" class="btn primary" disabled>Add apps</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Databases & services dialog -->
+  <div id="svc-backdrop" class="backdrop" hidden>
+    <div class="modal svc-dialog" role="dialog" aria-labelledby="svc-title">
+      <header class="modal-head">
+        <h2 id="svc-title">Databases &amp; services</h2>
+        <button type="button" id="svc-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <p class="hint">Run a database or dev service like any other app. Homeport uses the one installed on this computer, or Docker if you have it. Data stays in this project&rsquo;s <code>data/services/</code> folder. No accounts.</p>
+        <div id="svc-list" class="svc-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Command palette (⌘K / Ctrl+K) -->
+  <div id="cmdk-backdrop" class="cmdk-backdrop" hidden>
+    <div class="cmdk" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="cmdk-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></svg>
+        <input type="text" id="cmdk-input" placeholder="Search apps or type a command…" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" />
+        <kbd class="cmdk-esc">esc</kbd>
+      </div>
+      <div id="cmdk-list" class="cmdk-list" role="listbox" aria-label="Results"></div>
+      <div class="cmdk-foot">
+        <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+        <span><kbd>&crarr;</kbd> run</span>
+        <span><kbd>esc</kbd> close</span>
+        <span class="spacer"></span>
+        <span class="cmdk-brand">Homeport</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="assertive"></div>
+
+  <script src="app.js?v=22"></script>
+</body>
+</html>

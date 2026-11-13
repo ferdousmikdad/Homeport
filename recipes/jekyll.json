@@ -1,0 +1,10 @@
+{
+  "name": "Jekyll",
+  "match": {
+    "all": ["_config.yml", "Gemfile"],
+    "contains": {"Gemfile": "jekyll"}
+  },
+  "port": 4000,
+  "setup": [{"unless": "Gemfile.lock", "run": "bundle install"}],
+  "command": "bundle exec jekyll serve --port {port} --host 127.0.0.1"
+}

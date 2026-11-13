@@ -1,0 +1,10 @@
+{
+  "name": "Flutter web",
+  "match": {
+    "all": ["pubspec.yaml", "web"],
+    "contains": {"pubspec.yaml": "flutter:"}
+  },
+  "requires": ["flutter"],
+  "port": 8686,
+  "command": "flutter run -d web-server --web-hostname 127.0.0.1 --web-port {port}"
+}
