@@ -319,6 +319,7 @@ async def _build_state(cfg: dict, now: float) -> dict:
         "git": gitinfo.cached(cfg.get("path") or ""),
         "service": cfg.get("service"),
         "wordpress": _wp_state(cfg),
+        "entry": cfg.get("entry") or None,
     }
 
 
@@ -427,6 +428,7 @@ async def _lifespan(_app: FastAPI):
     share_routes.get_running_port = _running_port
     proxy.get_running_port = _running_port
     proxy.app_exists = lambda aid: registry.get(aid) is not None
+    proxy.get_entry = lambda aid: (registry.get(aid) or {}).get("entry") or None
     proxy.tunnels = share_routes.tunnels
 
     # Autostart apps on boot
@@ -503,7 +505,13 @@ async def create_app(request: Request) -> dict:
         raise HTTPException(status_code=400, detail="name is required")
     name = name.strip()
 
-    path = _require_dir(_clean_path(body.get("path")))
+    raw_path = _clean_path(body.get("path"))
+    entry = None
+    if os.path.isfile(raw_path):
+        # A single file (about.html, api.php, server.js …): run it from its folder.
+        file_path = raw_path
+        raw_path, entry = os.path.split(raw_path)
+    path = _require_dir(raw_path)
 
     command = body.get("command")
     if command is not None and not isinstance(command, str):
@@ -512,9 +520,11 @@ async def create_app(request: Request) -> dict:
     # Only pick a fresh free port when we also generate the command (the port
     # is baked into generated commands); a user command keeps the plain guess.
     detected = await asyncio.to_thread(
-        monitor.detect_command, path,
+        monitor.detect_command, file_path if entry else path,
         pick_free_port=not command, avoid_ports=_registered_ports(),
     )
+    if entry:
+        entry = detected.get("entry")  # only pages (HTML/PHP) open a specific file
     if not command:
         command = (detected.get("command") or "").strip()
 
@@ -553,6 +563,8 @@ async def create_app(request: Request) -> dict:
         "notify": bool(body.get("notify", True)),
         "env": _clean_env(body.get("env")),
     }
+    if entry:
+        payload["entry"] = entry
     try:
         cfg = registry.add(payload)
     except ValueError as exc:
@@ -906,10 +918,14 @@ async def detect(path: str | None = None, exclude_id: str | None = None) -> dict
         monitor.detect_command, target,
         pick_free_port=True, avoid_ports=_registered_ports(exclude_id),
     )
+    is_file = os.path.isfile(target)
     return {
         "command": detected.get("command"),
         "port": detected.get("port"),
         "type": detected.get("type"),
+        "entry": detected.get("entry"),
+        "is_file": is_file,
+        "folder": os.path.dirname(target) if is_file else target,
     }
 
 

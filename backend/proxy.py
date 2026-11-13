@@ -21,7 +21,7 @@ import html
 import re
 import time
 from typing import Callable, Optional
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 
 import httpx
 
@@ -30,6 +30,8 @@ __all__ = ["HostProxyMiddleware", "named_host"]
 # Wired by main.py
 get_running_port: Optional[Callable[[str], Optional[int]]] = None
 app_exists: Optional[Callable[[str], bool]] = None
+# The page a single-file app opens on ("about.html"): "/" redirects there.
+get_entry: Optional[Callable[[str], Optional[str]]] = None
 tunnels = None  # share_routes.tunnels
 
 _HOP = {
@@ -180,6 +182,16 @@ class HostProxyMiddleware:
                     await _send_page(send, st, body)
                 return
             public_origin = "http://" + host
+
+        entry = get_entry(app_id) if get_entry else None
+        if (entry and scope["type"] == "http" and scope.get("path") == "/"
+                and entry.lower() not in ("index.html", "index.htm", "index.php")):
+            location = "/" + quote(entry)
+            await send({"type": "http.response.start", "status": 302,
+                        "headers": [(b"location", location.encode("latin-1")), (b"content-length", b"0"),
+                                    (b"cache-control", b"no-store")]})
+            await send({"type": "http.response.body", "body": b""})
+            return
 
         if scope["type"] == "websocket":
             await self._proxy_ws(scope, receive, send, int(port))

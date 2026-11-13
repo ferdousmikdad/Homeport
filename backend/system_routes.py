@@ -3,6 +3,7 @@
 Implements the SPEC v2 system routes:
     GET  /api/browse?path=
     POST /api/pick-folder
+    POST /api/pick-file
     POST /api/apps/{id}/open
 """
 from __future__ import annotations
@@ -14,6 +15,7 @@ from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from . import detect as _detect
 from . import monitor, osutil
 
 router = APIRouter()
@@ -24,7 +26,7 @@ get_app_port: Callable[[str], int | None] | None = None
 
 
 @router.get("/api/browse")
-async def browse(path: str | None = Query(default=None)) -> dict:
+async def browse(path: str | None = Query(default=None), files: bool = Query(default=False)) -> dict:
     """List subdirectories of `path` (default: home dir), ignoring hidden dirs.
 
     Reports whether each directory looks like a runnable app (looks_like_app).
@@ -56,12 +58,16 @@ async def browse(path: str | None = Query(default=None)) -> dict:
                                 "looks_like_app": looks_like_app,
                             }
                         )
+                    elif (files and entry.is_file() and not entry.name.startswith(".")
+                          and entry.name.lower().endswith(_detect.FILE_TYPES)):
+                        entries.append({"name": entry.name, "path": entry.path, "is_file": True,
+                                        "looks_like_app": True})
                 except OSError:
                     continue
     except OSError as exc:
         raise HTTPException(status_code=400, detail=f"failed to read directory: {exc}") from exc
 
-    entries.sort(key=lambda e: e["name"].casefold())
+    entries.sort(key=lambda e: (bool(e.get("is_file")), e["name"].casefold()))
     return {
         "path": target,
         "parent": parent,
@@ -80,6 +86,15 @@ async def pick_folder() -> dict:
         return {"path": await asyncio.to_thread(osutil.pick_folder)}
     except osutil.PickerUnavailable as exc:
         raise HTTPException(status_code=501, detail=f"native folder picker unavailable: {exc}") from exc
+
+
+@router.post("/api/pick-file")
+async def pick_file() -> dict:
+    """Native "choose file" dialog for single-file apps; same contract as pick-folder."""
+    try:
+        return {"path": await asyncio.to_thread(osutil.pick_file)}
+    except osutil.PickerUnavailable as exc:
+        raise HTTPException(status_code=501, detail=f"native file picker unavailable: {exc}") from exc
 
 
 @router.post("/api/apps/{app_id}/open")
@@ -144,6 +159,9 @@ async def open_app_target(app_id: str, request: Request) -> dict:
         if not port:
             raise HTTPException(status_code=400, detail="app has no port configured or detected")
         url = f"http://127.0.0.1:{port}/"
+        if cfg.get("entry"):
+            from urllib.parse import quote
+            url += quote(str(cfg["entry"]))
         try:
             await asyncio.to_thread(osutil.open_url, url)
             return {"ok": True, "target": "browser", "url": url}

@@ -101,7 +101,12 @@ cd Homeport
     <div class="note">Your own projects still use their own tools (Node, PHP, …) from your system. If one is missing, the crash fixer tells you what to install.</div>
 
     <h2 id="add">Adding apps</h2>
-    <p>Click <strong>+ Add app</strong>, choose a project folder with <strong>Browse…</strong>, and Homeport fills in the start command, port and project type. You can edit any of it. Homeport recognises Laravel, Symfony, PHP, Django, FastAPI, Flask, Streamlit, Node (Vite, Next, Nuxt, Astro, Angular, CRA, Express — npm, pnpm, yarn or bun), Deno, Rails, Go, Rust, Spring Boot, .NET, Docker Compose, Makefiles, shell launchers, Procfiles and static sites — including projects one folder down (like <code>repo/app</code>).</p>
+    <p>Click <strong>+ Add app</strong> and pick what you want to run:</p>
+    <ul>
+      <li><strong>Folder…</strong> — a project folder. If the folder holds <em>several</em> projects (say a site, a Node API and a PHP app), Homeport lists them all; tick the ones you want and add them in one go — each gets its own port, and they can start together.</li>
+      <li><strong>File…</strong> — a single file: an <code>.html</code> page (served with its folder, opening that exact page), a <code>.php</code> page, a Node <code>.js</code> script or a Python <code>.py</code> file (Streamlit apps too).</li>
+    </ul>
+    <p>Homeport fills in the start command, port and project type. You can edit any of it. Homeport recognises Laravel, Symfony, PHP, Django, FastAPI, Flask, Streamlit, Node (Vite, Next, Nuxt, Astro, Angular, CRA, Express — npm, pnpm, yarn or bun), Deno, Rails, Go, Rust, Spring Boot, .NET, Docker Compose, Makefiles, shell launchers, Procfiles and static sites — including projects one folder down (like <code>repo/app</code>).</p>
     <p>Generated commands install missing dependencies on the first start and pick a free port, so two Laravel apps don't both claim <code>8000</code>.</p>
 
     <h2 id="discover">Discover projects</h2>

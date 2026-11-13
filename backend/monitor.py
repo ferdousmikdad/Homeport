@@ -296,6 +296,8 @@ def detect_command(path: str, *, pick_free_port: bool = False, avoid_ports=(), s
     the README/source when documented, else the framework default.
     ``pick_free_port`` skips ports that are busy or listed in ``avoid_ports``.
     """
+    if os.path.isfile(path):
+        return _detect.detect_file(path, pick_free_port=pick_free_port, avoid_ports=avoid_ports)
     if not os.path.isdir(path):
         return {"command": None, "port": None, "type": None}
     return _detect.detect(

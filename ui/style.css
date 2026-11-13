@@ -1699,3 +1699,16 @@ body.side-hidden .sidebar { display: none; }
 .wp-import label.disabled { opacity: 0.45; pointer-events: none; }
 
 .quit-msg { min-height: 100vh; display: grid; place-items: center; font-size: 15px; color: var(--text-2); }
+
+/* ---------- Add app: several projects at once ---------- */
+#app-form.multi-mode .single-only { display: none; }
+#app-form.multi-mode .row2 { grid-template-columns: 1fr; }
+.multi-box { display: flex; flex-direction: column; gap: 8px; }
+.multi-box[hidden] { display: none; }
+.multi-head, .multi-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.multi-head strong { font-size: 13.5px; }
+.multi-list { max-height: 300px; margin-top: 0; }
+.link-btn { padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.link-btn:hover { color: var(--text); }
+.hint .link-btn { font-size: inherit; margin-left: 4px; }
+.browse-item.is-file .browse-name { font-family: var(--mono); font-size: 12.5px; }

@@ -31,7 +31,7 @@ from typing import Callable, Iterable, Optional
 
 from . import osutil, recipes, shellenv
 
-__all__ = ["detect"]
+__all__ = ["detect", "detect_file", "FILE_TYPES"]
 
 
 # ---------------------------------------------------------------------------
@@ -661,3 +661,42 @@ def detect(path: str, scanned_port: Optional[int] = None, *,
             found["type"] = f"{found['type']} (in {sub}/)"
             return found
     return {"command": None, "port": scanned_port, "type": None}
+
+
+# ---------------------------------------------------------------------------
+# a single file (index.html, about.html, api.php, server.js, app.py …)
+# ---------------------------------------------------------------------------
+FILE_TYPES = (".html", ".htm", ".php", ".js", ".mjs", ".cjs", ".py")
+
+
+def detect_file(file_path: str, *, pick_free_port: bool = False,
+                avoid_ports: Iterable[int] = ()) -> dict:
+    """How to run one file.  The app runs in the file's folder; ``entry`` is
+    the page to open (for HTML/PHP), relative to that folder."""
+    none = {"command": None, "port": None, "type": None, "entry": None}
+    folder, name = os.path.split(os.path.abspath(file_path))
+    ext = os.path.splitext(name)[1].lower()
+    ctx = _make_ctx(folder, None, pick_free_port, avoid_ports)
+    if ctx is None or ext not in FILE_TYPES or not os.path.isfile(file_path):
+        return none
+    if ext in (".html", ".htm"):
+        port = ctx.port(8080)
+        return {"command": f"{_py()} -m http.server {port} --bind 127.0.0.1", "port": port,
+                "type": "HTML page", "entry": name}
+    if ext == ".php":
+        port = ctx.port(8000)
+        return {"command": f"php -S 127.0.0.1:{port}", "port": port, "type": "PHP page", "entry": name}
+    if ext in (".js", ".mjs", ".cjs"):
+        port = ctx.port(3000)
+        return {"command": _env("PORT", port, f"node {_q(name)}"), "port": port,
+                "type": "Node script", "entry": None}
+    # Python file
+    source = ctx.read(name)
+    python, setup = _python(ctx)
+    if re.search(r"^\s*(import|from)\s+streamlit", source, re.MULTILINE):
+        port = ctx.port(8501)
+        cmd = f"{python} -m streamlit run {_q(name)} --server.port {port} --server.headless true"
+        return {"command": _with_setup(setup, cmd), "port": port, "type": "Streamlit app", "entry": None}
+    port = ctx.port(8000)
+    return {"command": _with_setup(setup, _env("PORT", port, f"{python} {_q(name)}")), "port": None,
+            "type": "Python script", "entry": None}

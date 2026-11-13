@@ -2459,6 +2459,7 @@
     els.fDescription.value = editing ? app.description || "" : "";
     els.fPath.value = editing ? app.path : "";
     els.fPathHint.textContent = "";
+    setMulti(null);
     els.fCommand.value = editing ? app.command || "" : "";
     els.fPort.value = editing && app.port != null ? String(app.port) : "";
     els.fHealth.value = editing ? app.health_url || "" : "";
@@ -2492,9 +2493,14 @@
   els.modalClose.addEventListener("click", hideModal);
   els.modalCancel.addEventListener("click", hideModal);
 
+  function prettyName(p) {
+    const base = p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "";
+    return base.replace(/\.(html?|php|m?js|cjs|py)$/i, "").replace(/[-_.]+/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   async function triggerDetect(path) {
     const p = (path || "").trim();
-    if (!p) return;
+    if (!p) return null;
     const seq = ++state.detectSeq;
     els.fPathHint.textContent = "Detecting command and port…";
     try {
@@ -2504,37 +2510,178 @@
       if (seq !== state.detectSeq) return;
       if (data.command && !els.fCommand.value.trim()) els.fCommand.value = data.command;
       if (typeof data.port === "number" && !els.fPort.value.trim()) els.fPort.value = String(data.port);
-      if (!els.fName.value.trim()) {
-        const base = p.replace(/\/+$/, "").split("/").pop() || "";
-        els.fName.value = base.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      if (!els.fName.value.trim()) els.fName.value = prettyName(p);
+      if (data.is_file) {
+        els.fPathHint.textContent = data.command
+          ? "Detected " + data.type + (data.entry ? " — opens " + data.entry : "") + ": " + data.command
+          : "Homeport can run .html, .php, .js and .py files — pick one of those, or its folder.";
+      } else {
+        els.fPathHint.textContent = data.command
+          ? "Detected " + (data.type ? data.type + " project" : "command") + ": " + data.command
+          : "Couldn't recognise this project type — enter the command you use to start it.";
       }
-      els.fPathHint.textContent = data.command
-        ? "Detected " + (data.type ? data.type + " project" : "command") + ": " + data.command
-        : "Couldn't recognise this project type — enter the command you use to start it.";
+      return data;
     } catch (err) {
       if (seq === state.detectSeq) els.fPathHint.textContent = "Detection failed: " + err.message;
+      return null;
     }
   }
 
-  els.fPath.addEventListener("blur", () => triggerDetect(els.fPath.value));
+  // ---- A folder with several projects inside: add them all at once ----
+  let multi = null; // { root, projects: [{name, path, type, port, registered, checked}] }
+
+  function setMulti(value) {
+    multi = value;
+    els.form.classList.toggle("multi-mode", Boolean(multi));
+    $("multi-box").hidden = !multi;
+    if (!multi) {
+      els.modalSubmit.textContent = els.fId.value ? "Save" : "Add app";
+      return;
+    }
+    els.fPathHint.textContent = "This folder holds several projects — each becomes its own app with its own port.";
+    renderMulti();
+  }
+
+  function renderMulti() {
+    const list = $("multi-list");
+    list.textContent = "";
+    for (const p of multi.projects) {
+      const row = el("label", "disc-item" + (p.registered ? " added" : ""));
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.disabled = p.registered;
+      cb.checked = !p.registered && p.checked !== false;
+      p.checked = cb.checked;
+      cb.addEventListener("change", () => {
+        p.checked = cb.checked;
+        updateMultiButton();
+      });
+      row.appendChild(cb);
+      const text = el("span", "disc-text");
+      text.appendChild(el("strong", null, p.name));
+      text.appendChild(el("span", "muted", (p.type || "Project") + " · " + shortPath(p.path)));
+      row.appendChild(text);
+      row.appendChild(el("span", "disc-tag", p.registered ? "Added" : p.port ? ":" + p.port : ""));
+      list.appendChild(row);
+    }
+    $("multi-title").textContent = multi.projects.length + " projects in " + prettyName(multi.root);
+    updateMultiButton();
+  }
+
+  function updateMultiButton() {
+    const n = multi ? multi.projects.filter((p) => p.checked && !p.registered).length : 0;
+    els.modalSubmit.textContent = n ? "Add " + n + (n === 1 ? " app" : " apps") : "Add apps";
+    els.modalSubmit.disabled = n === 0;
+    $("multi-all").checked = n > 0 && n === multi.projects.filter((p) => !p.registered).length;
+  }
+
+  $("multi-all").addEventListener("change", (e) => {
+    if (!multi) return;
+    multi.projects.forEach((p) => {
+      if (!p.registered) p.checked = e.target.checked;
+    });
+    renderMulti();
+  });
+  $("multi-single").addEventListener("click", () => {
+    setMulti(null);
+    els.modalSubmit.disabled = false;
+  });
+
+  // Look at what was picked: one project, one file, or a folder of projects.
+  async function inspectPath(path) {
+    const p = (path || "").trim();
+    setMulti(null);
+    els.modalSubmit.disabled = false;
+    if (!p) return;
+    const data = await triggerDetect(p);
+    if (!data || data.is_file || els.fId.value) return; // editing keeps a single app
+    let res;
+    try {
+      res = await request("/api/discover", { method: "POST", body: JSON.stringify({ path: p }) });
+    } catch (err) {
+      return;
+    }
+    if (els.fPath.value.trim() !== p) return; // the user moved on
+    const same = (a, b) => a.replace(/[\\/]+$/, "") === b.replace(/[\\/]+$/, "");
+    let root = res.projects.find((x) => same(x.path, res.path));
+    const inside = res.projects.filter((x) => x !== root);
+    // "The folder itself" only counts when it isn't just serving one of its subfolders
+    // (e.g. a docs/index.html found from the top level).
+    const viaSubfolder = (x) => /^cd\s|--directory\s|\(in\s/.test((x.command || "") + " " + (x.type || ""));
+    if (root && inside.length >= 2 && viaSubfolder(root)) root = null;
+    if (!root && inside.length >= 2) {
+      setMulti({ root: res.path, projects: inside });
+    } else if (root && inside.length) {
+      const more = button("link-btn", "Add the " + inside.length + " project" + (inside.length === 1 ? "" : "s") + " inside instead");
+      more.addEventListener("click", () => setMulti({ root: res.path, projects: inside }));
+      els.fPathHint.appendChild(document.createTextNode(" · "));
+      els.fPathHint.appendChild(more);
+    }
+  }
+
+  async function addMany() {
+    const chosen = multi.projects.filter((p) => p.checked && !p.registered);
+    const start = $("multi-start").checked;
+    const category = els.fCategory.value.trim();
+    els.modalSubmit.disabled = true;
+    const created = [];
+    for (const p of chosen) {
+      try {
+        const st = await request("/api/apps", { method: "POST", body: JSON.stringify({ name: p.name, path: p.path, category: category }) });
+        replaceAppState(st);
+        created.push(st);
+      } catch (err) {
+        toast(p.name + ": " + err.message, "err");
+      }
+    }
+    hideModal();
+    els.modalSubmit.disabled = false;
+    toast("Added " + created.length + (created.length === 1 ? " app" : " apps") + (start ? " — starting them" : ""), "ok");
+    if (start) {
+      for (const st of created) {
+        if (st.command) await runAction(st.id, "start");
+      }
+    }
+  }
+
+  els.fPath.addEventListener("change", () => inspectPath(els.fPath.value));
 
   els.btnBrowse.addEventListener("click", async () => {
     try {
       const res = await request("/api/pick-folder", { method: "POST" });
       if (res && res.path) {
         els.fPath.value = res.path;
-        triggerDetect(res.path);
+        inspectPath(res.path);
         return;
       }
       if (res && res.path === null) return; // user cancelled the native picker
     } catch (err) {
       /* native picker unavailable — fall back to the in-page browser */
     }
-    openFolderBrowser(els.fPath.value || "");
+    openFolderBrowser(els.fPath.value || "", false);
+  });
+
+  $("btn-browse-file").addEventListener("click", async () => {
+    try {
+      const res = await request("/api/pick-file", { method: "POST" });
+      if (res && res.path) {
+        els.fPath.value = res.path;
+        inspectPath(res.path);
+        return;
+      }
+      if (res && res.path === null) return;
+    } catch (err) {
+      /* no native picker: use the in-page browser, which lists files too */
+    }
+    openFolderBrowser(els.fPath.value || "", true);
   });
 
   els.form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (multi) {
+      addMany();
+      return;
+    }
     const appId = els.fId.value;
 
     const env = {};
@@ -2588,9 +2735,12 @@
   /* In-page folder browser                                             */
   /* ------------------------------------------------------------------ */
 
-  function openFolderBrowser(initialPath) {
+  function openFolderBrowser(initialPath, files) {
+    state.browseFiles = Boolean(files);
     els.browseBackdrop.hidden = false;
-    loadFolder(initialPath || "");
+    let start = initialPath || "";
+    if (/\.(html?|php|m?js|cjs|py)$/i.test(start)) start = start.replace(/[\\/][^\\/]*$/, "");
+    loadFolder(start);
   }
 
   function hideFolderBrowser() {
@@ -2616,7 +2766,10 @@
   async function loadFolder(target) {
     els.browseList.textContent = "Loading…";
     try {
-      const data = await request("/api/browse" + (target ? "?path=" + encodeURIComponent(target) : ""));
+      const q = [];
+      if (target) q.push("path=" + encodeURIComponent(target));
+      if (state.browseFiles) q.push("files=1");
+      const data = await request("/api/browse" + (q.length ? "?" + q.join("&") : ""));
       state.currentBrowsePath = data.path;
       els.browseSelectedPath.textContent = data.path;
 
@@ -2637,10 +2790,20 @@
       els.browseList.textContent = "";
       if (data.parent) els.browseList.appendChild(browseItem("..", () => loadFolder(data.parent)));
       if (!data.entries.length) {
-        els.browseList.appendChild(el("div", "browse-empty", "No subfolders"));
+        els.browseList.appendChild(el("div", "browse-empty", state.browseFiles ? "No folders or runnable files here" : "No subfolders"));
       }
       for (const entry of data.entries) {
-        els.browseList.appendChild(browseItem(entry.name, () => loadFolder(entry.path), entry.looks_like_app));
+        if (entry.is_file) {
+          const item = browseItem(entry.name, () => {
+            els.fPath.value = entry.path;
+            inspectPath(entry.path);
+            hideFolderBrowser();
+          }, false);
+          item.classList.add("is-file");
+          els.browseList.appendChild(item);
+        } else {
+          els.browseList.appendChild(browseItem(entry.name, () => loadFolder(entry.path), entry.looks_like_app));
+        }
       }
     } catch (err) {
       els.browseList.textContent = "Couldn't open folder: " + err.message;
@@ -2650,7 +2813,7 @@
   els.browseSelect.addEventListener("click", () => {
     if (!state.currentBrowsePath) return;
     els.fPath.value = state.currentBrowsePath;
-    triggerDetect(state.currentBrowsePath);
+    inspectPath(state.currentBrowsePath);
     hideFolderBrowser();
   });
 

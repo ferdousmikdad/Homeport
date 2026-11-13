@@ -26,7 +26,7 @@ __all__ = [
     "IS_WINDOWS", "IS_MAC", "IS_LINUX", "platform_name",
     "venv_python", "venv_bin_dir", "popen_group_kwargs", "terminate_tree", "kill_pid",
     "listening_pids", "notify", "pick_folder", "PickerUnavailable",
-    "open_folder", "open_terminal", "open_url",
+    "open_folder", "open_terminal", "open_url", "pick_file",
 ]
 
 
@@ -267,6 +267,51 @@ def pick_folder(timeout: float = 300.0) -> Optional[str]:
 
     chosen = (res.stdout or "").strip()
     if res.returncode == 0 and chosen and os.path.isdir(chosen):
+        return chosen
+    if IS_MAC and res.returncode != 0 and "-128" not in (res.stderr or ""):
+        raise PickerUnavailable((res.stderr or "osascript failed").strip())
+    return None  # cancelled
+
+
+def pick_file(timeout: float = 300.0) -> Optional[str]:
+    """Show the native "choose file" dialog (web pages and scripts first).
+    Returns the path, None when cancelled, or raises PickerUnavailable."""
+    if IS_MAC:
+        cmd = ["osascript", "-e", 'POSIX path of (choose file with prompt "Choose a page or script to run")']
+    elif IS_WINDOWS:
+        ps = _powershell()
+        if not ps:
+            raise PickerUnavailable("PowerShell not found")
+        script = (
+            "Add-Type -AssemblyName System.Windows.Forms;"
+            "$d = New-Object System.Windows.Forms.OpenFileDialog;"
+            "$d.Title = 'Choose a page or script to run';"
+            "$d.Filter = 'Web pages and scripts|*.html;*.htm;*.php;*.js;*.mjs;*.cjs;*.py|All files|*.*';"
+            "$top = New-Object System.Windows.Forms.Form; $top.TopMost = $true;"
+            "if ($d.ShowDialog($top) -eq 'OK') { [Console]::Out.Write($d.FileName) }"
+        )
+        cmd = [ps, "-NoProfile", "-NonInteractive", "-STA", "-Command", script]
+    else:
+        if shutil.which("zenity"):
+            cmd = ["zenity", "--file-selection", "--title=Choose a page or script to run",
+                   "--file-filter=Web pages and scripts | *.html *.htm *.php *.js *.mjs *.cjs *.py",
+                   "--file-filter=All files | *"]
+        elif shutil.which("kdialog"):
+            cmd = ["kdialog", "--getopenfilename", os.path.expanduser("~"),
+                   "*.html *.htm *.php *.js *.mjs *.cjs *.py|Web pages and scripts"]
+        else:
+            raise PickerUnavailable("install zenity or kdialog for a native file picker")
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                             creationflags=_NO_WINDOW if IS_WINDOWS else 0)
+    except subprocess.TimeoutExpired:
+        return None
+    except OSError as exc:
+        raise PickerUnavailable(str(exc)) from exc
+
+    chosen = (res.stdout or "").strip()
+    if res.returncode == 0 and chosen and os.path.isfile(chosen):
         return chosen
     if IS_MAC and res.returncode != 0 and "-128" not in (res.stderr or ""):
         raise PickerUnavailable((res.stderr or "osascript failed").strip())

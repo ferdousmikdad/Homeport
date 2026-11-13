@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dial2" />
   <link rel="alternate icon" type="image/png" href="favicon.png?v=dial2" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=dial2" />
-  <link rel="stylesheet" href="style.css?v=26" />
+  <link rel="stylesheet" href="style.css?v=27" />
   <script>
     // Apply the saved theme before first paint to avoid a flash.
     try {
@@ -203,7 +203,7 @@
 
       <div class="form-body">
         <div class="row2">
-          <label class="field">
+          <label class="field single-only">
             <span>Name</span>
             <input id="f-name" name="name" type="text" placeholder="My App" required />
           </label>
@@ -214,26 +214,39 @@
           </label>
         </div>
 
-        <label class="field">
+        <label class="field single-only">
           <span>Description</span>
           <textarea id="f-description" name="description" rows="2" placeholder="What does this app do?"></textarea>
         </label>
 
-        <label class="field">
-          <span>Folder</span>
+        <div class="field">
+          <span>Folder or file</span>
           <div class="input-group">
-            <input id="f-path" name="path" type="text" placeholder="/Users/me/projects/app" required spellcheck="false" class="mono" />
-            <button type="button" id="btn-browse" class="btn">Browse&hellip;</button>
+            <input id="f-path" name="path" type="text" placeholder="A project folder, a folder of projects, or a file like index.html" required spellcheck="false" class="mono" aria-label="Folder or file" />
+            <button type="button" id="btn-browse" class="btn" title="Choose a project folder — or a folder with several projects inside">Folder&hellip;</button>
+            <button type="button" id="btn-browse-file" class="btn" title="Choose one file: .html, .php, .js or .py">File&hellip;</button>
           </div>
           <small id="f-path-hint" class="hint"></small>
-        </label>
+        </div>
 
-        <label class="field">
+        <div id="multi-box" class="multi-box" hidden>
+          <div class="multi-head">
+            <strong id="multi-title">Projects in this folder</strong>
+            <label class="check"><input type="checkbox" id="multi-all" checked /> Select all</label>
+          </div>
+          <div id="multi-list" class="disc-list multi-list"></div>
+          <div class="multi-foot">
+            <label class="check"><input type="checkbox" id="multi-start" checked /> Start them after adding (each opens in a new tab)</label>
+            <button type="button" id="multi-single" class="link-btn">Add the folder as one app instead</button>
+          </div>
+        </div>
+
+        <label class="field single-only">
           <span>Command</span>
           <input id="f-command" name="command" type="text" placeholder="python3 run.py" spellcheck="false" class="mono" />
         </label>
 
-        <div class="row2">
+        <div class="row2 single-only">
           <label class="field">
             <span>Port</span>
             <input id="f-port" name="port" type="number" min="0" max="65535" placeholder="8080" />
@@ -244,7 +257,7 @@
           </label>
         </div>
 
-        <div class="env-group">
+        <div class="env-group single-only">
           <div class="env-header">
             <span>Environment variables</span>
             <button type="button" id="btn-add-env" class="btn small ghost">Add variable</button>
@@ -252,7 +265,7 @@
           <div id="env-rows" class="env-rows"></div>
         </div>
 
-        <div class="check-group">
+        <div class="check-group single-only">
           <label class="check"><input id="f-auto" name="auto_restart" type="checkbox" /> Restart automatically if it crashes</label>
           <label class="check"><input id="f-autostart" name="autostart" type="checkbox" /> Start when the manager starts</label>
           <label class="check"><input id="f-notify" name="notify" type="checkbox" checked /> Notify me when it crashes</label>
@@ -492,6 +505,6 @@
 
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>
