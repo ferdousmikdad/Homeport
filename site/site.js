@@ -1,5 +1,33 @@
 // Homeport website — small progressive enhancements (the page works without JS).
 (function () {
+  // Theme toggle (dark / light). The inline head script sets the initial theme.
+  (function theme() {
+    const root = document.documentElement;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const buttons = document.querySelectorAll("[data-theme-toggle]");
+    const apply = (t) => {
+      root.setAttribute("data-theme", t);
+      if (meta) meta.setAttribute("content", t === "light" ? "#fafafa" : "#070707");
+      buttons.forEach((b) => b.setAttribute("aria-label", t === "light" ? "Switch to dark mode" : "Switch to light mode"));
+    };
+    apply(root.getAttribute("data-theme") === "light" ? "light" : "dark");
+    buttons.forEach((b) => b.addEventListener("click", () => {
+      const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      apply(next);
+    }));
+    // Follow system changes until the visitor picks a theme themselves.
+    if (window.matchMedia) {
+      const mq = matchMedia("(prefers-color-scheme: light)");
+      const onChange = () => {
+        let saved = null;
+        try { saved = localStorage.getItem("theme"); } catch (e) {}
+        if (saved !== "light" && saved !== "dark") apply(mq.matches ? "light" : "dark");
+      };
+      if (mq.addEventListener) mq.addEventListener("change", onChange);
+    }
+  })();
+
   // Feature tabs (click + arrow keys)
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
   function select(tab) {
