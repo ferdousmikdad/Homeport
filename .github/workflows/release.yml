@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag like v1.3.0 (or run manually) to build installers for every OS and
+# Push a tag like v1.0.0 (or run manually) to build installers for every OS and
 # attach them to a GitHub Release. File names never change, so
 # https://github.com/ferdousmikdad/Homeport/releases/latest/download/<name>
 # always serves the newest version.
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (e.g. 1.3.0)"
+        description: "Version (e.g. 1.0.0)"
         required: true
 
 permissions:

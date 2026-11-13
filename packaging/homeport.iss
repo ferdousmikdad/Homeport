@@ -1,5 +1,5 @@
 ; Inno Setup script: Homeport-Setup.exe (per-user install, no admin rights).
-;   iscc /DAppVersion=1.3.0 packaging\homeport.iss
+;   iscc /DAppVersion=1.0.0 packaging\homeport.iss
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
