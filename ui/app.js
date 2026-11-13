@@ -12,6 +12,7 @@
   const API_BASE = (params.get("api") || "").replace(/\/+$/, "");
 
   const ICONS = {
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
     grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
     more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
     dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8.5" cy="12" r="1.9"/><circle cx="15.5" cy="12" r="1.9"/></svg>',
@@ -1936,7 +1937,7 @@
       }
       list.appendChild(item);
     }
-    $("diag-ai").hidden = !data.ai_available;
+    $("diag-ai").hidden = false; // Claude Code or the local model (set up on first use)
   }
 
   async function openDiagnose(app) {
@@ -2014,6 +2015,7 @@
     const prompt = "My app \"" + app.name + "\" (" + app.path + ") crashed. Its start command is `" + app.command +
       "`. Here are the last log lines:\n```\n" + lines + "\n```\nExplain why it crashed and fix it.";
     openAi();
+    ai.appId = app.id; // lets the local model start from Homeport's own crash check
     ai.input.value = prompt;
     ai.input.focus();
   });
@@ -3098,6 +3100,7 @@
     act("Add app", "plus", () => openAddModal(), "new project create");
     act("Discover projects", "discover", () => openDiscover(), "scan folder import find");
     act("Databases & services…", "layers", () => openServices(), "postgres mysql mariadb redis mongodb mailpit database");
+    act("Settings…", "settings", () => openSettings(), "preferences ai model ollama local qwen llama download");
     for (const [kind, label] of [["postgres", "PostgreSQL"], ["mysql", "MySQL / MariaDB"], ["redis", "Redis"], ["mongodb", "MongoDB"], ["mailpit", "Mailpit (email testing)"]]) {
       act("Add " + label, "plus", () => addService(kind), "database service");
     }
@@ -3273,6 +3276,7 @@
       else if (!$("diag-backdrop").hidden) hideDiag();
       else if (!$("disc-backdrop").hidden) hideDiscover();
       else if (!$("svc-backdrop").hidden) hideServices();
+      else if (!$("settings-backdrop").hidden) hideSettings();
       else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
@@ -3316,7 +3320,8 @@
   });
 
   /* ------------------------------------------------------------------ */
-  /* AI assistant (runs the local `claude` CLI only when you send)      */
+  /* AI assistant: Claude Code (the local `claude` CLI) or a local model */
+  /* through Ollama. Either one runs only when you send a message.       */
   /* ------------------------------------------------------------------ */
 
   const ai = {
@@ -3327,14 +3332,26 @@
     send: $("ai-send"),
     model: $("ai-model"),
     modelCustom: $("ai-model-custom"),
+    modelWrap: $("ai-model-wrap"),
+    providerSel: $("ai-provider"),
+    localSel: $("ai-local-model"),
+    localWrap: $("ai-local-wrap"),
+    modelsBtn: $("ai-models-btn"),
+    sub: $("ai-sub"),
     modeSeg: $("ai-mode"),
     meta: $("ai-meta"),
     reload: $("ai-reload"),
+    provider: "claude",
+    claudeAvailable: false,
+    localStatus: null,
     sessionId: null,
+    appId: null,
     mode: "act",
     running: false,
     abort: null,
     tools: {},
+    streamNode: null,
+    streamText: "",
   };
 
   const AI_SUGGESTIONS = [
@@ -3342,6 +3359,11 @@
     "Find apps that share the same port and give each a unique one.",
     "Add the app in this folder: ",
     "Make the cards more compact.",
+  ];
+  const AI_LOCAL_SUGGESTIONS = [
+    "Why are some apps crashed? Find the cause and fix it.",
+    "Which apps share the same port?",
+    "What does this app need to start?",
   ];
 
   function aiPref(key, fallback) {
@@ -3362,6 +3384,7 @@
   }
 
   function aiModel() {
+    if (ai.provider === "local") return ai.localSel.value;
     return ai.model.value === "__custom" ? ai.modelCustom.value.trim() : ai.model.value;
   }
 
@@ -3392,7 +3415,7 @@
   }
 
   function aiAppend(node) {
-    const empty = ai.log.querySelector(".ai-empty");
+    const empty = ai.log.querySelector(".ai-empty, .ai-setup");
     if (empty) empty.remove();
     const thinking = ai.log.querySelector(".ai-thinking");
     if (thinking && node !== thinking) ai.log.insertBefore(node, thinking);
@@ -3405,7 +3428,7 @@
     ai.log.textContent = "";
     const box = el("div", "ai-empty");
     box.appendChild(el("p", null, "Ask a question or tell it what to do. Try:"));
-    AI_SUGGESTIONS.forEach((text) => {
+    (ai.provider === "local" ? AI_LOCAL_SUGGESTIONS : AI_SUGGESTIONS).forEach((text) => {
       const chip = button("ai-chip", text);
       chip.addEventListener("click", () => {
         ai.input.value = text;
@@ -3427,13 +3450,57 @@
     if (!running && thinking) thinking.remove();
   }
 
+  function aiEndStream() {
+    ai.streamNode = null;
+    ai.streamText = "";
+  }
+
+  function aiConfirmCard(evt) {
+    const card = el("div", "ai-confirm");
+    card.appendChild(el("div", "ai-confirm-label", "Allow this change?"));
+    card.appendChild(el("div", "ai-confirm-text", evt.summary || evt.name));
+    const row = el("div", "ai-confirm-row");
+    const yes = button("btn small primary", "Allow");
+    const no = button("btn small", "Don't allow");
+    const answer = async (approve) => {
+      yes.disabled = true;
+      no.disabled = true;
+      try {
+        await request("/api/local-ai/confirm", { method: "POST", body: JSON.stringify({ id: evt.id, approve: approve }) });
+        row.replaceChildren(el("span", "muted", approve ? "Allowed" : "Not allowed"));
+      } catch (err) {
+        row.replaceChildren(el("span", "muted", "This request has expired"));
+      }
+      card.classList.add("answered");
+    };
+    yes.addEventListener("click", () => answer(true));
+    no.addEventListener("click", () => answer(false));
+    row.append(yes, no);
+    card.appendChild(row);
+    return card;
+  }
+
   function aiHandle(evt) {
     if (evt.type === "session") {
       ai.sessionId = evt.session_id || ai.sessionId;
       if (evt.model) ai.meta.textContent = evt.model;
+    } else if (evt.type === "status") {
+      const thinking = ai.log.querySelector(".ai-thinking");
+      if (thinking) thinking.textContent = evt.text || "Working";
+    } else if (evt.type === "delta") {
+      if (!ai.streamNode) {
+        ai.streamNode = aiAppend(el("div", "ai-msg"));
+        ai.streamText = "";
+      }
+      ai.streamText += evt.text;
+      ai.streamNode.textContent = "";
+      aiRichText(ai.streamNode, ai.streamText);
+      aiScroll();
     } else if (evt.type === "text") {
+      aiEndStream();
       aiAppend(aiRichText(el("div", "ai-msg"), evt.text));
     } else if (evt.type === "tool") {
+      aiEndStream();
       const row = el("div", "ai-tool");
       row.appendChild(el("b", null, evt.name));
       row.appendChild(el("span", null, evt.summary || ""));
@@ -3444,75 +3511,517 @@
     } else if (evt.type === "tool_result") {
       const row = ai.tools[evt.id];
       if (row && evt.error) row.classList.add("failed");
+    } else if (evt.type === "confirm") {
+      aiEndStream();
+      aiAppend(aiConfirmCard(evt));
+      if (ai.panel.hidden) document.getElementById("ai-fab").classList.add("unread");
     } else if (evt.type === "done") {
+      aiEndStream();
       ai.sessionId = evt.session_id || ai.sessionId;
       if (ai.panel.hidden) document.getElementById("ai-fab").classList.add("unread");
       const bits = [];
       if (typeof evt.duration_ms === "number") bits.push((evt.duration_ms / 1000).toFixed(1) + "s");
       if (evt.turns) bits.push(evt.turns + " turns");
+      if (typeof evt.tokens_per_s === "number") bits.push(evt.tokens_per_s + " tok/s");
       if (typeof evt.cost_usd === "number") bits.push("≈$" + evt.cost_usd.toFixed(3) + " of plan usage");
+      if (ai.provider === "local") bits.push("on this computer");
       ai.meta.textContent = bits.join(" · ");
     } else if (evt.type === "error") {
+      aiEndStream();
       aiAppend(el("div", "ai-msg error", evt.message || "Something went wrong"));
+    }
+  }
+
+  // Read a text/event-stream response and hand each JSON event to onEvent.
+  async function readSSE(res, onEvent) {
+    if (!res.ok) {
+      const raw = await res.text();
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        data = null;
+      }
+      throw new Error(errorText(data, res.status, raw));
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+        if (!line) continue;
+        let evt = null;
+        try {
+          evt = JSON.parse(line.slice(6));
+        } catch (err) {
+          continue; // ignore malformed event
+        }
+        onEvent(evt);
+      }
     }
   }
 
   async function aiSend(prompt) {
     aiAppend(el("div", "ai-msg user", prompt));
     aiSetRunning(true);
+    aiEndStream();
     ai.tools = {};
     ai.abort = new AbortController();
+    const local = ai.provider === "local";
+    const body = { prompt, model: aiModel(), session_id: ai.sessionId, mode: ai.mode };
+    if (local && ai.appId) body.app_id = ai.appId;
+    ai.appId = null;
     try {
-      const res = await fetch(apiUrl("/api/ai/ask"), {
+      const res = await fetch(apiUrl(local ? "/api/local-ai/ask" : "/api/ai/ask"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({ prompt, model: aiModel(), session_id: ai.sessionId, mode: ai.mode }),
+        body: JSON.stringify(body),
         signal: ai.abort.signal,
       });
-      if (!res.ok) {
-        const raw = await res.text();
-        let data = null;
-        try {
-          data = JSON.parse(raw);
-        } catch (err) {
-          data = null;
-        }
-        throw new Error(errorText(data, res.status, raw));
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let idx;
-        while ((idx = buf.indexOf("\n\n")) >= 0) {
-          const chunk = buf.slice(0, idx);
-          buf = buf.slice(idx + 2);
-          const line = chunk.split("\n").find((l) => l.startsWith("data: "));
-          if (!line) continue;
-          try {
-            aiHandle(JSON.parse(line.slice(6)));
-          } catch (err) {
-            /* ignore malformed event */
-          }
-        }
-      }
+      await readSSE(res, aiHandle);
     } catch (err) {
       aiAppend(el("div", "ai-msg error", err.name === "AbortError" ? "stopped" : err.message));
     } finally {
       ai.abort = null;
+      aiEndStream();
       aiSetRunning(false);
     }
   }
 
   async function aiStop() {
     try {
-      // The server kills the run and the stream ends with a "stopped" event.
-      await request("/api/ai/stop", { method: "POST" });
+      // The server stops the run and the stream ends.
+      await request(ai.provider === "local" ? "/api/local-ai/stop" : "/api/ai/stop", { method: "POST" });
     } catch (err) {
       if (ai.abort) ai.abort.abort();
+    }
+  }
+
+  /* ---------- local models (Ollama) ---------- */
+
+  function fmtGB(bytes) {
+    return (bytes / 1e9).toFixed(1) + " GB";
+  }
+
+  function sameModel(a, b) {
+    const norm = (s) => (s.indexOf(":") >= 0 ? s : s + ":latest");
+    return !!a && !!b && norm(a) === norm(b);
+  }
+
+  function aiFillLocalModels(st) {
+    const names = (st.models || []).map((m) => m.name);
+    ai.localSel.textContent = "";
+    names.forEach((name) => {
+      const opt = el("option", null, name);
+      opt.value = name;
+      ai.localSel.appendChild(opt);
+    });
+    if (!names.length) {
+      const opt = el("option", null, "No model yet");
+      opt.value = "";
+      ai.localSel.appendChild(opt);
+    }
+    const preferred = [st.selected, st.recommended].find((n) => n && names.some((x) => sameModel(x, n)));
+    ai.localSel.value = (preferred && names.find((x) => sameModel(x, preferred))) || names[0] || "";
+  }
+
+  function aiLocalReady(st) {
+    return !!(st && st.running && st.models && st.models.length);
+  }
+
+  async function aiLocalStatus() {
+    const st = await request("/api/local-ai/status");
+    ai.localStatus = st;
+    aiFillLocalModels(st);
+    watchPull(st);
+    return st;
+  }
+
+  // In the chat: a short note with a button to Settings, where models are managed.
+  function aiRenderSetupCard(st) {
+    ai.log.textContent = "";
+    const box = el("div", "ai-setup");
+    box.appendChild(el("h3", null, "Set up the local model"));
+    let text;
+    if (!st.installed) text = "Install Ollama (free) and download a model in Settings. It runs on this computer, offline.";
+    else if (!st.running) text = "Ollama is installed but not running. Start it in Settings.";
+    else if (st.pull && st.pull.active) text = "Downloading " + st.pull.model + "… you can keep working, it continues in the background.";
+    else text = "Download a model in Settings to start. Qwen3 4B (about 2.5 GB) is a good first choice.";
+    box.appendChild(el("p", "muted", text));
+    const open = button("btn small primary", "Open Settings");
+    open.addEventListener("click", () => openSettings());
+    box.appendChild(open);
+    ai.log.appendChild(box);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Settings: AI assistant, Ollama, models, fix guides                  */
+  /* ------------------------------------------------------------------ */
+
+  const settings = { open: false, st: null, prefs: { ai_provider: null, local_model: null }, claude: null };
+
+  async function saveSetting(changes) {
+    try {
+      settings.prefs = await request("/api/settings", { method: "PATCH", body: JSON.stringify(changes) });
+    } catch (err) {
+      toast("Couldn't save the setting: " + err.message, "err");
+    }
+    return settings.prefs;
+  }
+
+  function settingsSection(title, hint) {
+    const sec = el("section", "set-section");
+    sec.appendChild(el("h3", null, title));
+    if (hint) sec.appendChild(el("p", "hint", hint));
+    return sec;
+  }
+
+  function renderSettings() {
+    const body = $("settings-body");
+    const st = settings.st;
+    const claude = settings.claude;
+    body.textContent = "";
+
+    // 1. which assistant
+    const pick = settingsSection("AI assistant", "Used by Ask AI (⌘J) and “Ask AI to fix” on crashed apps. Neither runs in the background.");
+    const choices = el("div", "set-choices");
+    const localReady = aiLocalReady(st);
+    [
+      ["claude", "Claude Code", claude && claude.available ? "Installed" + (claude.version ? " · " + claude.version : "") : "Not installed", "Most capable. Uses your Claude account."],
+      ["local", "Local model", localReady ? "Ready · " + (ai.localSel.value || st.models[0].name) : "Not set up yet", "Free and offline. Runs on this computer with Ollama."],
+    ].forEach(([value, name, state, note]) => {
+      const card = button("set-choice" + (ai.provider === value ? " active" : ""));
+      card.setAttribute("aria-pressed", String(ai.provider === value));
+      card.appendChild(el("b", null, name));
+      card.appendChild(el("span", "set-choice-state" + (/Installed|Ready/.test(state) ? " ok" : ""), state));
+      card.appendChild(el("span", "muted", note));
+      card.addEventListener("click", () => {
+        if (ai.running) {
+          toast("Wait for the assistant to finish first", "warn");
+          return;
+        }
+        aiSetProvider(value);
+        renderSettings();
+      });
+      choices.appendChild(card);
+    });
+    pick.appendChild(choices);
+    body.appendChild(pick);
+
+    if (!st) {
+      body.appendChild(el("p", "hint", "Checking the local model…"));
+      return;
+    }
+
+    // 2. Ollama
+    const oll = settingsSection("Local AI with Ollama", "Ollama is a free app that runs open AI models. Nothing you ask leaves this computer, and a model is unloaded from memory a few minutes after it answers.");
+    const row = el("div", "set-row");
+    const info = el("div", "set-row-text");
+    if (st.running) {
+      info.appendChild(el("b", null, "Ollama is running"));
+      info.appendChild(el("span", "muted", (st.version && st.version !== "unknown" ? "Version " + st.version + " · " : "") + st.url));
+    } else if (st.installed) {
+      info.appendChild(el("b", null, "Ollama is installed but not running"));
+    } else {
+      info.appendChild(el("b", null, "Ollama isn't installed"));
+      info.appendChild(el("span", "muted", "About 0.5–2 GB. macOS, Windows and Linux."));
+    }
+    row.appendChild(info);
+    const actions = el("div", "set-row-actions");
+    if (!st.running && st.installed) {
+      const start = button("btn small primary", "Start Ollama");
+      start.addEventListener("click", async () => {
+        start.disabled = true;
+        start.textContent = "Starting…";
+        try {
+          await request("/api/local-ai/start", { method: "POST" });
+        } catch (err) {
+          toast(err.message, "err");
+        }
+        refreshSettings();
+      });
+      actions.appendChild(start);
+    } else if (!st.installed) {
+      const get = el("a", "btn small primary", "Download Ollama");
+      get.href = st.download_url;
+      get.target = "_blank";
+      get.rel = "noopener";
+      const again = button("btn small", "Check again");
+      again.addEventListener("click", () => refreshSettings());
+      actions.append(get, again);
+    }
+    row.appendChild(actions);
+    oll.appendChild(row);
+    const facts = [];
+    if (st.ram_gb) facts.push(st.ram_gb.toFixed(0) + " GB memory");
+    if (typeof st.disk_free_gb === "number") facts.push(st.disk_free_gb.toFixed(0) + " GB free disk");
+    if (st.models_size_gb) facts.push("models use " + st.models_size_gb.toFixed(1) + " GB");
+    if (facts.length) oll.appendChild(el("p", "hint", "This computer: " + facts.join(" · ")));
+    body.appendChild(oll);
+
+    // 3. models
+    const mods = settingsSection("Models", "Download one model to start. Bigger models give better answers but are slower and need more memory. Downloads continue in the background.");
+    const list = el("div", "ai-models");
+    (st.catalog || []).forEach((m) => list.appendChild(modelRow(st, m)));
+    (st.models || [])
+      .filter((m) => !(st.catalog || []).some((c) => sameModel(c.id, m.name)))
+      .forEach((m) => list.appendChild(modelRow(st, { id: m.name, name: m.name, size_bytes: m.size, installed: true })));
+    if (!st.running) list.classList.add("disabled");
+    mods.appendChild(list);
+    body.appendChild(mods);
+
+    // 4. fix guides
+    const guides = settingsSection("Fix guides", "Step-by-step guides the local model follows for common problems. The matching guide is picked automatically. Add your own as a Markdown file in the skills/ folder.");
+    const chips = el("div", "set-chips");
+    (st.skills || []).forEach((s) => chips.appendChild(el("span", "set-chip", s.title)));
+    guides.appendChild(chips);
+    body.appendChild(guides);
+  }
+
+  function modelRow(st, m) {
+    const pull = st.pull && sameModel(st.pull.model, m.id) ? st.pull : null;
+    if (pull && pull.active) m = Object.assign({}, m, { installed: false }); // half-downloaded
+    const selected = m.installed && ai.localSel.value && sameModel(ai.localSel.value, m.id);
+    const row = el("div", "ai-model-row" + (m.installed ? " installed" : ""));
+    const info = el("div", "ai-model-info");
+    const title = el("div", "ai-model-name", m.name);
+    if (m.id === st.recommended) title.appendChild(el("span", "ai-badge", "Recommended"));
+    if (selected) title.appendChild(el("span", "ai-badge ok", "In use"));
+    else if (m.installed) title.appendChild(el("span", "ai-badge ok", "Downloaded"));
+    info.appendChild(title);
+    const bits = [];
+    if (m.note) bits.push(m.note);
+    if (m.size_gb) bits.push(m.size_gb + " GB");
+    else if (m.size_bytes) bits.push(fmtGB(m.size_bytes));
+    if (m.ram_gb) bits.push("needs " + m.ram_gb + " GB memory");
+    info.appendChild(el("div", "ai-model-note", bits.join(" · ")));
+    if (m.ram_gb && st.ram_gb && m.ram_gb > st.ram_gb + 0.5) info.appendChild(el("div", "ai-model-warn", "May be slow on this computer"));
+    if (pull && pull.active) {
+      const progress = el("div", "ai-progress");
+      const bar = el("div", "ai-progress-bar");
+      const pct = pull.total ? Math.min(100, Math.round((100 * pull.completed) / pull.total)) : 0;
+      bar.style.width = pct + "%";
+      progress.appendChild(bar);
+      info.appendChild(progress);
+      info.appendChild(el("div", "ai-model-note", pull.total ? "Downloading… " + pct + "% of " + fmtGB(pull.total) : pull.status || "Starting…"));
+    } else if (pull && pull.error && !pull.cancelled && !m.installed) {
+      info.appendChild(el("div", "ai-model-warn", "Download failed: " + pull.error));
+    }
+    row.appendChild(info);
+
+    const actions = el("div", "ai-model-actions");
+    if (pull && pull.active) {
+      const cancel = button("btn small", "Cancel");
+      cancel.addEventListener("click", async () => {
+        cancel.disabled = true;
+        await request("/api/local-ai/pull/cancel", { method: "POST" }).catch(() => {});
+        refreshSettings();
+      });
+      actions.appendChild(cancel);
+    } else if (m.installed) {
+      const use = button("btn small" + (selected ? "" : " primary"), selected ? "In use" : "Use");
+      use.disabled = !!selected;
+      use.addEventListener("click", async () => {
+        ai.localSel.value = m.id;
+        ai.sessionId = null;
+        await saveSetting({ local_model: m.id });
+        if (ai.provider !== "local") aiSetProvider("local");
+        refreshSettings();
+      });
+      const del = button("btn small ghost", "Remove");
+      del.title = "Delete this model and free its disk space";
+      del.addEventListener("click", async () => {
+        if (del.dataset.armed !== "1") {
+          del.dataset.armed = "1";
+          del.textContent = "Remove?";
+          window.setTimeout(() => {
+            del.dataset.armed = "";
+            del.textContent = "Remove";
+          }, 3000);
+          return;
+        }
+        del.disabled = true;
+        try {
+          await request("/api/local-ai/delete", { method: "POST", body: JSON.stringify({ model: m.id }) });
+          toast("Removed " + m.name, "ok");
+        } catch (err) {
+          toast(err.message, "err");
+        }
+        refreshSettings();
+      });
+      actions.append(use, del);
+    } else {
+      const get = button("btn small", "Download");
+      get.disabled = !st.running || !!(st.pull && st.pull.active);
+      if (st.pull && st.pull.active) get.title = "Wait for the current download to finish";
+      get.addEventListener("click", async () => {
+        get.disabled = true;
+        try {
+          await request("/api/local-ai/pull", { method: "POST", body: JSON.stringify({ model: m.id }) });
+        } catch (err) {
+          toast(err.message, "err");
+        }
+        refreshSettings();
+      });
+      actions.appendChild(get);
+    }
+    row.appendChild(actions);
+    return row;
+  }
+
+  async function refreshSettings() {
+    try {
+      const [st, prefs] = await Promise.all([aiLocalStatus(), request("/api/settings")]);
+      settings.st = st;
+      settings.prefs = prefs;
+    } catch (err) {
+      toast(err.message, "err");
+    }
+    if (settings.open) renderSettings();
+    if (ai.provider === "local" && !ai.panel.hidden) aiRefresh(false);
+  }
+
+  async function openSettings() {
+    settings.open = true;
+    $("settings-backdrop").hidden = false;
+    renderSettings();
+    request("/api/ai/status")
+      .then((c) => {
+        settings.claude = c;
+        if (settings.open) renderSettings();
+      })
+      .catch(() => {});
+    await refreshSettings();
+  }
+
+  function hideSettings() {
+    settings.open = false;
+    $("settings-backdrop").hidden = true;
+  }
+
+  // A model download runs on the server. While one is active, poll its progress
+  // for the Settings dialog and the badge on the sidebar's Settings item.
+  let pullTimer = null;
+  let pullSeen = null;
+
+  function showPullBadge(pull) {
+    const badge = $("settings-badge");
+    if (pull && pull.active) {
+      badge.hidden = false;
+      badge.textContent = pull.total ? Math.round((100 * pull.completed) / pull.total) + "%" : "…";
+      badge.title = "Downloading " + pull.model;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  function watchPull(st) {
+    const pull = st && st.pull;
+    showPullBadge(pull);
+    if (pull && pull.active) {
+      pullSeen = pull.model;
+      if (!pullTimer) {
+        pullTimer = window.setInterval(async () => {
+          let next;
+          try {
+            next = await request("/api/local-ai/status");
+          } catch (err) {
+            return;
+          }
+          ai.localStatus = next;
+          if (!(next.pull && next.pull.active)) {
+            window.clearInterval(pullTimer);
+            pullTimer = null;
+            aiFillLocalModels(next);
+            if (next.pull && pullSeen === next.pull.model) {
+              if (next.pull.done) toast(next.pull.model + " is downloaded and ready", "ok");
+              else if (!next.pull.cancelled) toast("Download failed: " + (next.pull.error || "unknown error"), "err");
+            }
+            pullSeen = null;
+            if (ai.provider === "local" && !ai.panel.hidden) aiRefresh(false);
+          }
+          showPullBadge(next.pull);
+          if (settings.open) {
+            settings.st = next;
+            renderSettings();
+          }
+        }, 1000);
+      }
+    }
+  }
+
+  $("btn-settings").addEventListener("click", openSettings);
+  $("settings-close").addEventListener("click", hideSettings);
+  $("settings-backdrop").addEventListener("mousedown", (e) => {
+    if (e.target === $("settings-backdrop")) hideSettings();
+  });
+
+  /* ---------- provider switching and status ---------- */
+
+  function aiApplyProvider() {
+    const local = ai.provider === "local";
+    ai.providerSel.value = ai.provider;
+    ai.modelWrap.hidden = local;
+    ai.modelCustom.hidden = local || ai.model.value !== "__custom";
+    ai.localWrap.hidden = !local;
+    ai.modelsBtn.hidden = !local;
+    const dot = ai.sub.querySelector(".ai-online");
+    ai.sub.textContent = local ? "Local model · offline · runs only when you send" : "Claude · runs only when you send";
+    if (dot) ai.sub.prepend(dot);
+  }
+
+  function aiSetProvider(provider) {
+    ai.provider = provider === "local" ? "local" : "claude";
+    aiSavePref("provider", ai.provider);
+    saveSetting({ ai_provider: ai.provider });
+    ai.sessionId = null;
+    ai.meta.textContent = "";
+    aiApplyProvider();
+    aiRenderEmpty(); // a new conversation with the other assistant
+    aiRefresh(false);
+  }
+
+  // Check the selected assistant and show the chat, or its setup screen.
+  async function aiRefresh(showSetup) {
+    if (ai.provider === "claude") {
+      try {
+        const st = await request("/api/ai/status");
+        ai.claudeAvailable = !!st.available;
+        if (!st.available) {
+          ai.meta.textContent = "claude CLI not found — install Claude Code and log in, or switch to Local model";
+          ai.send.disabled = true;
+        } else {
+          ai.send.disabled = false;
+          if (!ai.meta.textContent && st.version) ai.meta.textContent = st.version;
+        }
+      } catch (err) {
+        ai.meta.textContent = err.message;
+      }
+      if (ai.log.querySelector(".ai-setup")) aiRenderEmpty();
+      return;
+    }
+    let st;
+    try {
+      st = await aiLocalStatus();
+    } catch (err) {
+      ai.meta.textContent = err.message;
+      return;
+    }
+    const ready = aiLocalReady(st);
+    ai.send.disabled = !ready;
+    if (!ready) ai.meta.textContent = st.running ? "Download a model in Settings to start" : "Set up Ollama in Settings to start";
+    else if (!ai.running && /Settings to start/.test(ai.meta.textContent)) ai.meta.textContent = "";
+    if (!ready) {
+      if (!ai.running) aiRenderSetupCard(st);
+    } else if (ai.log.querySelector(".ai-setup")) {
+      aiRenderEmpty();
     }
   }
 
@@ -3523,18 +4032,7 @@
     aiFab.classList.remove("unread");
     aiFab.setAttribute("aria-expanded", "true");
     ai.input.focus();
-    try {
-      const st = await request("/api/ai/status");
-      if (!st.available) {
-        ai.meta.textContent = "claude CLI not found — install Claude Code and log in";
-        ai.send.disabled = true;
-      } else {
-        ai.send.disabled = false;
-        if (!ai.meta.textContent && st.version) ai.meta.textContent = st.version;
-      }
-    } catch (err) {
-      ai.meta.textContent = err.message;
-    }
+    await aiRefresh(false);
   }
 
   function closeAi() {
@@ -3546,10 +4044,23 @@
   ai.model.value = aiPref("model", "sonnet");
   if (ai.model.selectedIndex < 0) ai.model.value = "sonnet";
   ai.modelCustom.value = aiPref("model_custom", "");
-  ai.modelCustom.hidden = ai.model.value !== "__custom";
+  ai.provider = aiPref("provider", "claude") === "local" ? "local" : "claude"; // until the server answers
+  aiApplyProvider();
   aiSetMode(aiPref("mode", "act"));
   aiRenderEmpty();
 
+  ai.providerSel.addEventListener("change", () => {
+    if (ai.running) {
+      ai.providerSel.value = ai.provider;
+      return;
+    }
+    aiSetProvider(ai.providerSel.value);
+  });
+  ai.localSel.addEventListener("change", () => {
+    ai.sessionId = null;
+    if (ai.localSel.value) saveSetting({ local_model: ai.localSel.value });
+  });
+  ai.modelsBtn.addEventListener("click", () => openSettings());
   ai.model.addEventListener("change", () => {
     aiSavePref("model", ai.model.value);
     ai.modelCustom.hidden = ai.model.value !== "__custom";
@@ -3566,9 +4077,11 @@
   $("ai-new").addEventListener("click", () => {
     if (ai.running) return;
     ai.sessionId = null;
+    ai.appId = null;
     ai.meta.textContent = "";
     ai.reload.hidden = true;
     aiRenderEmpty();
+    aiRefresh(false);
     ai.input.focus();
   });
   ai.reload.addEventListener("click", () => window.location.reload());
@@ -3579,10 +4092,15 @@
       return;
     }
     const prompt = ai.input.value.trim();
-    if (!prompt) return;
-    if (ai.model.value === "__custom" && !aiModel()) {
+    if (!prompt || ai.send.disabled) return;
+    if (ai.provider === "claude" && ai.model.value === "__custom" && !aiModel()) {
       toast("Enter a model id or pick a model", "warn");
       ai.modelCustom.focus();
+      return;
+    }
+    if (ai.provider === "local" && !aiModel()) {
+      toast("Download a model first", "warn");
+      openSettings();
       return;
     }
     ai.input.value = "";
@@ -3612,11 +4130,30 @@
   setCatsOpen(loadPref("cats_open", "1") === "1");
   catToggle.addEventListener("click", () => setCatsOpen(catToggle.getAttribute("aria-expanded") !== "true"));
 
-  // The AI assistant is optional (needs Claude Code); hide its button without it.
-  aiFab.hidden = true;
-  request("/api/ai/status")
+  // The AI button is always there: Claude Code when it's installed, otherwise
+  // the optional local model (set up from the chat panel).
+  aiFab.hidden = false;
+  // The chosen assistant is saved in Homeport (shared by every window). With no
+  // choice yet: Claude Code when it's installed, otherwise the local model.
+  Promise.all([request("/api/settings"), request("/api/ai/status").catch(() => ({ available: false }))])
+    .then(([prefs, st]) => {
+      settings.prefs = prefs;
+      ai.claudeAvailable = !!(st && st.available);
+      const chosen = prefs.ai_provider || (ai.claudeAvailable ? "claude" : "local");
+      if (chosen !== ai.provider) {
+        ai.provider = chosen;
+        aiApplyProvider();
+        aiRenderEmpty();
+      }
+      aiSavePref("provider", ai.provider);
+    })
+    .catch(() => {});
+  // Show a model download that is still running (e.g. after a reload).
+  request("/api/local-ai/status")
     .then((st) => {
-      aiFab.hidden = !(st && st.available);
+      ai.localStatus = st;
+      aiFillLocalModels(st);
+      watchPull(st);
     })
     .catch(() => {});
 

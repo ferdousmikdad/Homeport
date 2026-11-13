@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, app_settings, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
@@ -424,6 +424,8 @@ async def _lifespan(_app: FastAPI):
     system_routes.get_app_config = lambda aid: registry.get(aid)
     system_routes.get_app_port = lambda aid: _states.get(aid, {}).get("detected_port") or _states.get(aid, {}).get("port")
     ai_routes.get_states = _snapshot
+    local_ai.get_states = _snapshot
+    local_ai.asgi_app = app
     share_routes.get_app_config = lambda aid: registry.get(aid)
     share_routes.get_running_port = _running_port
     proxy.get_running_port = _running_port
@@ -475,6 +477,8 @@ async def _no_stale_ui(request: Request, call_next):
     return response
 app.include_router(system_routes.router)
 app.include_router(ai_routes.router)
+app.include_router(local_ai.router)
+app.include_router(app_settings.router)
 app.include_router(share_routes.router)
 # Named URLs (<id>.localhost) and password-protected shares, routed by Host.
 app.add_middleware(proxy.HostProxyMiddleware)

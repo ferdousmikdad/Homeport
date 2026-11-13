@@ -29,7 +29,7 @@ Homeport works with the projects you already have, whatever they're built with.
 | 🩺 **Crash fixer** | When an app stops, **Why?** reads the log and explains it in plain words — port in use, missing packages, no `.env`, tool not installed, database down — with one-click fixes. Works offline. |
 | 🌿 **Git on every card** | Branch, uncommitted changes, commits to pull — and **Pull & restart**. |
 | 🧩 **Community recipes** | Teach Homeport a new framework with a small JSON file — no code. See [`recipes/`](recipes/README.md). |
-| 🤖 **Optional AI assistant** | If you already use [Claude Code](https://claude.com/claude-code), a chat bubble can diagnose and fix apps for you. Not required for anything else. |
+| 🤖 **Optional AI assistant** | A chat panel that diagnoses and fixes apps. Use [Claude Code](https://claude.com/claude-code) if you have it, or a **free local model** (Qwen, Llama, Gemma) through [Ollama](https://ollama.com): offline, nothing leaves your computer, and every change asks you first. Guided by step-by-step fix guides in [`skills/`](skills/README.md). Not required for anything else. |
 
 Plus: live CPU / memory / uptime, persistent logs with search, auto-restart on
 crash, start at login, port-conflict detection, drag-and-drop organising,

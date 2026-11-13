@@ -24,6 +24,7 @@ a = Analysis(
     datas=[
         (os.path.join(ROOT, "ui"), "ui"),
         (os.path.join(ROOT, "recipes"), "recipes"),
+        (os.path.join(ROOT, "skills"), "skills"),
     ],
     hiddenimports=hidden,
     excludes=["tkinter", "pytest", "_pytest"],

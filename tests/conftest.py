@@ -18,6 +18,10 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
 
     monkeypatch.setattr(procman, "_DEFAULT_LOG_DIR", str(tmp_path_factory.mktemp("logs")))
     monkeypatch.setattr(detect, "WINDOWS", False)
+    # app-wide settings (AI choice, local model) go to a throw-away file
+    from backend import app_settings
+    settings_file = str(tmp_path_factory.mktemp("settings") / "settings.json")
+    monkeypatch.setattr(app_settings, "_file", lambda: settings_file)
 
 
 @pytest.fixture
