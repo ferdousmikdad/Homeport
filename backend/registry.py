@@ -71,6 +71,7 @@ _WRITABLE = (
     "notify",
     "env",
     "service",
+    "wordpress",
     "created_at",
     "updated_at",
 )
@@ -174,6 +175,7 @@ def _normalize(cfg: dict, *, app_id: str) -> dict:
         "notify": bool(cfg.get("notify", True)),
         "env": _coerce_env(cfg.get("env")),
         "service": cfg.get("service") if isinstance(cfg.get("service"), dict) else None,
+        "wordpress": cfg.get("wordpress") if isinstance(cfg.get("wordpress"), dict) else None,
         "created_at": _opt_float(created_at),
         "updated_at": _opt_float(updated_at),
     }

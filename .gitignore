@@ -11,3 +11,4 @@ data/apps.json
 data/*.tmp
 data/services/
 .runtime/
+data/tmp/

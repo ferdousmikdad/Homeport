@@ -47,6 +47,7 @@
     <h4>When things break</h4>
     <a href="#crash-fixer">Crash fixer</a>
     <a href="#services">Databases &amp; services</a>
+    <a href="#wordpress">WordPress</a>
     <h4>Advanced</h4>
     <a href="#recipes">Recipes</a>
     <a href="#autostart">Start at login</a>
@@ -113,6 +114,7 @@ cd Homeport
     <ul>
       <li><strong>Password</strong> (optional): visitors see a password page first. Only a salted hash is stored.</li>
       <li><strong>Expiry</strong>: 15 minutes to 24 hours, or never. The link also stops when you stop the app or quit Homeport.</li>
+      <li><strong>Works with any framework</strong>: visitors' requests carry the public address (<code>X-Forwarded-Host</code>/<code>Proto</code>), and leftover <code>http://localhost:PORT</code> links in pages, CSS, JavaScript and redirects are swapped for the public address.</li>
       <li>The first time, the dialog offers to install Cloudflare's open-source <code>cloudflared</code> (about 40 MB) into <code>bin/</code>.</li>
     </ul>
     <div class="note">Your computer must stay on and awake while the link is in use. Quick-tunnel addresses change each time you share.</div>
@@ -142,6 +144,16 @@ DB_PORT=5433
 DB_DATABASE=postgres
 DB_USERNAME=postgres
 DATABASE_URL=postgresql://postgres@127.0.0.1:5433/postgres</code></pre>
+
+    <h2 id="wordpress">WordPress</h2>
+    <p>Add a WordPress folder — a fresh download or a copy of a live site — and its card shows <strong>WordPress needs a database · Set up</strong>. One click:</p>
+    <ol>
+      <li>creates (or reuses) a <strong>MySQL/MariaDB</strong> service and a database for the site;</li>
+      <li>points <code>wp-config.php</code> at it — your original is saved as <code>wp-config.homeport-backup.php</code>;</li>
+      <li>adds a small helper, <code>wp-content/mu-plugins/homeport-url.php</code>, so the site works on whatever address it's opened with: <code>localhost</code>, <code>blog.localhost</code>, your phone or a share link.</li>
+    </ol>
+    <p>Then <strong>Import a database backup</strong> (<code>.sql</code> or <code>.sql.gz</code> from phpMyAdmin, your host or a backup plugin). Links saved with the old domain (e.g. <code>https://theirsite.com</code>) point to the current address automatically — nothing in the database is rewritten. Delete the helper file to go back.</p>
+    <div class="note">Needs PHP with the <code>mysqli</code> extension (standard in most PHP installs) and MySQL/MariaDB or Docker.</div>
 
     <h2 id="recipes">Recipes</h2>
     <p>Teach Homeport a new kind of project with one JSON file — in <code>recipes/</code> (shared via pull request) or <code>~/.homeport/recipes/</code> (just for you).</p>

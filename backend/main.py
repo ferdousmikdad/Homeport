@@ -16,7 +16,9 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import subprocess
+import tempfile
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -27,7 +29,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, diagnose, gitinfo, icons, monitor, osutil, proxy, services, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, diagnose, gitinfo, icons, monitor, osutil, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
@@ -315,6 +317,7 @@ async def _build_state(cfg: dict, now: float) -> dict:
         "lan": await _lan_state(app_id, bool(info.get("running"))),
         "git": gitinfo.cached(cfg.get("path") or ""),
         "service": cfg.get("service"),
+        "wordpress": _wp_state(cfg),
     }
 
 
@@ -1092,7 +1095,10 @@ async def add_service(request: Request) -> dict:
     kind = str(body.get("kind") or "")
     if kind not in services.CATALOG:
         raise HTTPException(status_code=400, detail=f"unknown service: {kind!r}")
-    mode = body.get("mode") or None
+    return await _create_service(kind, body.get("mode") or None, bool(body.get("start", True)))
+
+
+async def _create_service(kind: str, mode: str | None = None, start: bool = True) -> dict:
     meta = services.CATALOG[kind]
 
     taken_names = {a["name"].casefold() for a in registry.list()}
@@ -1122,12 +1128,141 @@ async def add_service(request: Request) -> dict:
     desc = meta["description"] + (" · via Docker" if plan["service"]["mode"] == "docker" else "")
     cfg = registry.update(cfg["id"], {"path": plan["path"], "command": plan["command"], "port": plan["port"],
                                       "service": plan["service"], "description": desc})
-    if body.get("start", True):
+    if start:
         with contextlib.suppress(HTTPException):
             return await start_app(cfg["id"], kill_conflict=0)
     state = await _build_state(cfg, time.time())
     _states[cfg["id"]] = state
     return state
+
+
+# ---------------------------------------------------------------------------
+# routes — WordPress mode
+# ---------------------------------------------------------------------------
+_wp_cache: dict = {}
+
+
+def _wp_db_service(cfg: dict) -> dict | None:
+    """The MySQL/MariaDB service app this WordPress site uses (if any)."""
+    link = cfg.get("wordpress") or {}
+    svc = registry.get(link.get("service_id") or "") if link.get("service_id") else None
+    if svc and (svc.get("service") or {}).get("kind") == "mysql":
+        return svc
+    return None
+
+
+def _wp_state(cfg: dict) -> dict | None:
+    """Cheap WordPress summary for the card (cached by wp-config mtime)."""
+    path = cfg.get("path") or ""
+    try:
+        stamp = os.path.getmtime(os.path.join(path, "wp-config.php"))
+    except OSError:
+        stamp = 0.0
+    svc = _wp_db_service(cfg)
+    expected = f"127.0.0.1:{svc['port']}" if svc else None
+    key = (path, stamp, expected, os.path.isfile(os.path.join(path, wordpress.HELPER_REL)))
+    hit = _wp_cache.get(cfg["id"])
+    if hit and hit[0] == key:
+        return hit[1]
+    st = wordpress.status(path, expected) if path else None
+    if st is not None:
+        st["service_id"] = svc["id"] if svc else None
+        st["needs_setup"] = st["needs_setup"] or svc is None
+    _wp_cache[cfg["id"]] = (key, st)
+    return st
+
+
+@app.get("/api/apps/{app_id}/wordpress")
+async def wordpress_status(app_id: str) -> dict:
+    cfg = _cfg_or_404(app_id)
+    st = _wp_state(cfg)
+    if st is None:
+        raise HTTPException(status_code=404, detail="this app isn't a WordPress site")
+    avail = await asyncio.to_thread(services.availability, "mysql")
+    mysqli = await asyncio.to_thread(wordpress.php_has_mysqli)
+    return {**st, "mysql_available": avail["native"] or avail["docker"], "php_mysqli": mysqli,
+            "mysql_install": services.catalog()[1]["install"]}
+
+
+@app.post("/api/apps/{app_id}/wordpress/setup")
+async def wordpress_setup(app_id: str) -> dict:
+    """Database service + database + wp-config.php + live-URL helper."""
+    cfg = _cfg_or_404(app_id)
+    if not wordpress.is_wordpress(cfg.get("path") or ""):
+        raise HTTPException(status_code=400, detail="this folder isn't a WordPress site")
+
+    svc = _wp_db_service(cfg) or next(
+        (a for a in registry.list() if (a.get("service") or {}).get("kind") == "mysql"), None)
+    if svc is None:
+        try:
+            svc = registry.get((await _create_service("mysql"))["id"])
+        except HTTPException as exc:
+            raise HTTPException(status_code=409, detail=f"needs MySQL or MariaDB: {exc.detail}") from exc
+    if not pm.is_running(svc["id"]):
+        with contextlib.suppress(HTTPException):
+            await start_app(svc["id"], kill_conflict=0)
+    if await _wait_until_up(svc["id"], timeout=90) != "running":
+        raise HTTPException(status_code=409, detail=f"the database service “{svc['name']}” didn't start — see its logs")
+
+    db_name = ("wp_" + re.sub(r"[^a-z0-9]+", "_", app_id.lower())).strip("_")[:64]
+    port = int(svc["port"])
+    try:
+        await asyncio.to_thread(wordpress.create_database, port, db_name)
+        await asyncio.to_thread(wordpress.write_config, cfg["path"], db_name, "root", "", f"127.0.0.1:{port}")
+        await asyncio.to_thread(wordpress.install_helper, cfg["path"])
+    except (RuntimeError, ValueError, OSError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    cfg = registry.update(app_id, {"wordpress": {"service_id": svc["id"], "db": db_name}})
+    pm._append_to_file(app_id, f"[homeport] WordPress set up: database {db_name} on {svc['name']} (127.0.0.1:{port})")
+    if pm.is_running(app_id):
+        await asyncio.to_thread(pm.restart, cfg)
+    _wp_cache.pop(app_id, None)
+    state = await _build_state(cfg, time.time())
+    _states[app_id] = state
+    _broadcast()
+    return state
+
+
+@app.post("/api/apps/{app_id}/wordpress/import")
+async def wordpress_import(app_id: str, request: Request) -> dict:
+    """Upload a .sql / .sql.gz backup (raw request body) into the site's database."""
+    cfg = _cfg_or_404(app_id)
+    link = cfg.get("wordpress") or {}
+    svc = _wp_db_service(cfg)
+    if not link.get("db") or svc is None:
+        raise HTTPException(status_code=409, detail="set up WordPress first (it creates the database)")
+    if not pm.is_running(svc["id"]):
+        with contextlib.suppress(HTTPException):
+            await start_app(svc["id"], kill_conflict=0)
+        await _wait_until_up(svc["id"], timeout=90)
+
+    tmp_dir = os.path.join(PROJECT_ROOT, "data", "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix="import-", suffix=".sql", dir=tmp_dir)
+    size = 0
+    try:
+        with os.fdopen(fd, "wb") as out:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 2 * 1024 ** 3:
+                    raise HTTPException(status_code=413, detail="backup is larger than 2 GB")
+                out.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=400, detail="the uploaded file is empty")
+        container = None
+        if (svc.get("service") or {}).get("mode") == "docker":
+            container = f"homeport-{svc['id']}"
+        try:
+            how = await asyncio.to_thread(wordpress.import_sql, tmp_path, int(svc["port"]), link["db"],
+                                          docker_container=container)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(tmp_path)
+    pm._append_to_file(app_id, f"[homeport] imported database backup ({size // 1024} KB, {how})")
+    return {"ok": True, "size": size, "how": how}
 
 
 @app.get("/api/health")

@@ -338,6 +338,7 @@
   }
 
   function techLabel(app) {
+    if (app.wordpress) return "WordPress";
     const cmd = (app.command || "").toLowerCase();
     if (!cmd) return null;
     if (cmd.includes("http.server")) return "Static";
@@ -621,6 +622,16 @@
     alert.appendChild(whyBtn);
     alert.appendChild(alertBtn);
 
+    // WordPress needs setup
+    const wpBar = el("div", "wp-bar");
+    wpBar.appendChild(el("span", "wp-bar-text", "WordPress needs a database to run"));
+    const wpSetupBtn = button("btn small", "Set up");
+    wpBar.appendChild(wpSetupBtn);
+    wpSetupBtn.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur) openWordPress(cur);
+    });
+
     // Public share link
     const shareBar = el("div", "share-bar");
     const shareDot = el("span", "share-dot");
@@ -688,6 +699,11 @@
     menu.appendChild(el("hr"));
     const miBrowser = mi("Open in browser");
     const miPhone = mi("Open on phone…");
+    const miWp = mi("WordPress…");
+    miWp.addEventListener("click", () => {
+      const cur = findApp(id);
+      if (cur) openWordPress(cur);
+    });
     const miConnUrl = mi("Copy connection URL");
     const miConnEnv = mi("Copy .env settings");
     const miPull = mi("Pull & restart");
@@ -717,6 +733,7 @@
     bottom.appendChild(actions);
 
     card.appendChild(head);
+    card.appendChild(wpBar);
     card.appendChild(shareBar);
     card.appendChild(alert);
     card.appendChild(bottom);
@@ -819,6 +836,7 @@
       el: card,
       logo, logoKey: null, stats,
       shareBar, shareText, shareLink, shareBtn, shareMeta, gitChip, whyBtn, miPhone, miPull, miConnUrl, miConnEnv,
+      wpBar, miWp,
       name, path, desc, status, statusText,
       portLink, portNone, health, tech, category,
       alert, alertText, alertBtn,
@@ -913,6 +931,8 @@
     }
     v.miPull.hidden = !git;
     v.miConnUrl.hidden = v.miConnEnv.hidden = !app.service;
+    v.miWp.hidden = !app.wordpress;
+    v.wpBar.hidden = !(app.wordpress && app.wordpress.needs_setup) || status === "crashed";
     v.miPhone.disabled = !isActive(app);
 
     const share = app.share;
@@ -2136,6 +2156,118 @@
   $("svc-close").addEventListener("click", hideServices);
 
   /* ------------------------------------------------------------------ */
+  /* WordPress mode                                                      */
+  /* ------------------------------------------------------------------ */
+
+  const wp = { appId: null, info: null };
+
+  function renderWordPress() {
+    const info = wp.info;
+    const steps = $("wp-steps");
+    steps.textContent = "";
+    const warn = $("wp-warn");
+    warn.hidden = true;
+    if (!info) {
+      steps.appendChild(el("li", "hint", "Checking…"));
+      return;
+    }
+    const svc = info.service_id ? findApp(info.service_id) : null;
+    const items = [
+      [Boolean(svc), svc ? "Database: " + svc.name + " (" + (svc.status || "stopped") + ")" + (info.db_name ? " · " + info.db_name : "")
+        : "Database: a MySQL/MariaDB service will be created"],
+      [info.linked, info.linked ? "wp-config.php points at it" + (info.backup ? " (original backed up)" : "") : "wp-config.php will be pointed at it (original backed up)"],
+      [info.helper, info.helper ? "Live-URL helper installed" : "Live-URL helper: works on localhost, phones and share links"],
+    ];
+    for (const [done, text] of items) {
+      const li = el("li", done ? "done" : "");
+      li.appendChild(el("span", "wp-check", done ? "✓" : ""));
+      li.appendChild(el("span", null, text));
+      steps.appendChild(li);
+    }
+    const problems = [];
+    if (!info.mysql_available && !svc) problems.push("MySQL or MariaDB isn't installed (and no Docker). Install: " + info.mysql_install);
+    if (!info.php_mysqli) problems.push("PHP's mysqli extension isn't enabled — WordPress needs it.");
+    if (problems.length) {
+      warn.textContent = problems.join(" ");
+      warn.hidden = false;
+    }
+    const ready = !info.needs_setup;
+    $("wp-setup").textContent = ready ? "Run setup again" : "Set up WordPress";
+    $("wp-setup").className = "btn" + (ready ? "" : " primary");
+    $("wp-import-label").classList.toggle("disabled", !info.db_name);
+  }
+
+  async function refreshWordPress() {
+    try {
+      wp.info = await request("/api/apps/" + encodeURIComponent(wp.appId) + "/wordpress");
+    } catch (err) {
+      wp.info = null;
+      toast("WordPress: " + err.message, "err");
+    }
+    renderWordPress();
+  }
+
+  function openWordPress(app) {
+    wp.appId = app.id;
+    wp.info = null;
+    $("wp-title").textContent = "WordPress · " + app.name;
+    $("wp-backdrop").hidden = false;
+    renderWordPress();
+    refreshWordPress();
+  }
+
+  function hideWordPress() {
+    $("wp-backdrop").hidden = true;
+    wp.appId = null;
+  }
+
+  $("wp-close").addEventListener("click", hideWordPress);
+  $("wp-setup").addEventListener("click", async () => {
+    const btn = $("wp-setup");
+    btn.disabled = true;
+    btn.textContent = "Setting up…";
+    try {
+      const st = await request("/api/apps/" + encodeURIComponent(wp.appId) + "/wordpress/setup", { method: "POST" });
+      replaceAppState(st);
+      toast("WordPress is set up — start it and open the site", "ok");
+    } catch (err) {
+      toast("Setup failed: " + err.message, "err");
+    } finally {
+      btn.disabled = false;
+      refreshWordPress();
+    }
+  });
+  $("wp-import-file").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const label = $("wp-import-label");
+    const original = label.firstChild.textContent;
+    label.firstChild.textContent = "Importing " + file.name + "…";
+    try {
+      const res = await fetch(apiUrl("/api/apps/" + encodeURIComponent(wp.appId) + "/wordpress/import"), {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: file,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errorText(data, res.status, ""));
+      toast("Imported " + file.name + " (" + Math.round(data.size / 1024) + " KB)", "ok");
+    } catch (err) {
+      toast("Import failed: " + err.message, "err");
+    } finally {
+      label.firstChild.textContent = original;
+    }
+  });
+  $("wp-open").addEventListener("click", () => {
+    if (wp.appId) openInBrowser(wp.appId);
+  });
+  $("wp-admin").addEventListener("click", () => {
+    const app = findApp(wp.appId);
+    if (app) window.open(namedUrl(app) + "wp-admin/", "_blank", "noopener");
+  });
+
+  /* ------------------------------------------------------------------ */
   /* Workspaces: start/stop a whole group in order                       */
   /* ------------------------------------------------------------------ */
 
@@ -2735,6 +2867,10 @@
       if (app.status === "crashed" || (app.port_conflict && !active)) {
         add(Object.assign({}, base, { title: "Why did " + name + " stop?", icon: "why", keywords: kw + " crash fix diagnose error", run: () => openDiagnose(app) }));
       }
+      if (app.wordpress) {
+        add(Object.assign({}, base, { title: (app.wordpress.needs_setup ? "Set up WordPress for " : "WordPress settings for ") + name, icon: "layers", keywords: kw + " wordpress wp database mysql import", run: () => openWordPress(app) }));
+        add(Object.assign({}, base, { title: "Open " + name + " admin (wp-admin)", icon: "open", keywords: kw + " wordpress dashboard login", run: () => window.open(namedUrl(app) + "wp-admin/", "_blank", "noopener") }));
+      }
       if (app.service) {
         add(Object.assign({}, base, { title: "Copy connection URL for " + name, icon: "copy", keywords: kw + " database url dsn", run: () => copyText(app.service.url) }));
         add(Object.assign({}, base, { title: "Copy .env settings for " + name, icon: "copy", keywords: kw + " database env dotenv", run: () => copyText(envText(app.service)) }));
@@ -2932,6 +3068,7 @@
       else if (!$("diag-backdrop").hidden) hideDiag();
       else if (!$("disc-backdrop").hidden) hideDiscover();
       else if (!$("svc-backdrop").hidden) hideServices();
+      else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
       else if (!els.drawer.hidden) closeLogs();

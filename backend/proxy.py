@@ -18,6 +18,7 @@ import asyncio
 import hashlib
 import hmac
 import html
+import re
 import time
 from typing import Callable, Optional
 from urllib.parse import parse_qs
@@ -37,6 +38,47 @@ _HOP = {
 }
 _COOKIE = "homeport_share"
 _LOGIN_PATH = "/__homeport/login"
+
+
+_MAX_REWRITE = 8 * 1024 * 1024
+_TEXT_TYPES = ("text/html", "text/css", "javascript", "application/json", "application/ld+json",
+               "application/xml", "text/xml", "image/svg+xml", "application/manifest+json", "text/plain")
+
+
+def _localhost_swaps(port: int, public_origin: str) -> list:
+    """(old, new) byte pairs that turn the app's own localhost address into
+    the address the visitor used — plain, protocol-relative and JSON-escaped."""
+    public_origin = public_origin.rstrip("/")
+    host = public_origin.split("://", 1)[-1]
+    pairs = []
+    for local in (f"localhost:{port}", f"127.0.0.1:{port}", f"[::1]:{port}", f"0.0.0.0:{port}"):
+        pairs += [
+            (f"http://{local}", public_origin),
+            (f"https://{local}", public_origin),
+            (f"http:\\/\\/{local}", public_origin.replace("/", "\\/")),
+            (f"//{local}", f"//{host}"),
+        ]
+    table = {a.encode(): b.encode() for a, b in pairs}
+    # longest first, and the port must end there (8000 must not match 80001)
+    pattern = re.compile(b"(" + b"|".join(re.escape(k) for k in sorted(table, key=len, reverse=True)) + b")(?![0-9])")
+    return [pattern, table]
+
+
+def _apply(data: bytes, swaps: list) -> bytes:
+    pattern, table = swaps
+    return pattern.sub(lambda m: table[m.group(1)], data)
+
+
+def _rewritable(resp: "httpx.Response", method: str) -> bool:
+    if method == "HEAD" or resp.status_code in (204, 304):
+        return False
+    ctype = resp.headers.get("content-type", "").lower()
+    if "event-stream" in ctype or not any(t in ctype for t in _TEXT_TYPES):
+        return False
+    if resp.headers.get("content-encoding", "identity").lower() not in ("", "identity"):
+        return False
+    length = resp.headers.get("content-length")
+    return not (length and length.isdigit() and int(length) > _MAX_REWRITE)
 
 
 def named_host(app_id: str, manager_port: int) -> str:
@@ -119,9 +161,10 @@ class HostProxyMiddleware:
 
         kind, app_id = route
         if kind == "share":
-            port = await self._authorize_share(scope, receive, send, app_id, headers)
-            if port is None:
+            granted = await self._authorize_share(scope, receive, send, app_id, headers)
+            if granted is None:
                 return
+            port, public_origin = granted
         else:
             if app_exists is None or not app_exists(app_id):
                 if scope["type"] == "http":
@@ -136,29 +179,36 @@ class HostProxyMiddleware:
                                      "<p>Start it from the Homeport dashboard, then reload this page.</p>", 503)
                     await _send_page(send, st, body)
                 return
+            public_origin = "http://" + host
 
         if scope["type"] == "websocket":
             await self._proxy_ws(scope, receive, send, int(port))
         else:
-            await self._proxy_http(scope, receive, send, int(port), host)
+            await self._proxy_http(scope, receive, send, int(port), public_origin)
 
     # ------------------------------------------------------------------
     # password-protected shares
     # ------------------------------------------------------------------
-    async def _authorize_share(self, scope, receive, send, app_id, headers) -> Optional[int]:
-        info = tunnels.auth_info(app_id) if tunnels is not None else None
+    async def _authorize_share(self, scope, receive, send, app_id, headers) -> Optional[tuple]:
+        """(port, public_origin) when the visitor may pass, else None (a page
+        was sent: closed link or password form)."""
+        info = tunnels.share_info(app_id) if tunnels is not None else None
         if info is None:
             if scope["type"] == "http":
                 st, body = _page("Link closed", "<h1>This link is closed</h1>"
                                  "<p>The owner stopped sharing this app or the link expired.</p>", 410)
                 await _send_page(send, st, body)
             return None
-        _salt, _hash, secret, port = info
+        port = info["port"]
+        public_origin = (info.get("url") or "").rstrip("/") or "https://" + app_id + ".share.localhost"
+        if not info["protected"]:
+            return port, public_origin
+        secret = info["secret"]
         expected = _token(secret, app_id)
         cookies = headers.get(b"cookie", b"").decode("latin-1")
         jar = dict(part.strip().split("=", 1) for part in cookies.split(";") if "=" in part)
         if hmac.compare_digest(jar.get(_COOKIE, ""), expected):
-            return port
+            return port, public_origin
         if scope["type"] != "http":
             return None
 
@@ -189,14 +239,20 @@ class HostProxyMiddleware:
     # ------------------------------------------------------------------
     # HTTP
     # ------------------------------------------------------------------
-    async def _proxy_http(self, scope, receive, send, port: int, orig_host: str) -> None:
+    async def _proxy_http(self, scope, receive, send, port: int, public_origin: str) -> None:
         path = scope.get("raw_path") or scope["path"].encode()
         qs = scope.get("query_string") or b""
         url = f"http://localhost:{port}{path.decode('latin-1')}" + (f"?{qs.decode('latin-1')}" if qs else "")
-        fwd = [(k, v) for k, v in scope.get("headers") or [] if k.lower() not in _HOP]
+        public_host = public_origin.split("://", 1)[-1]
+        public_proto = public_origin.split("://", 1)[0]
+        fwd = [(k, v) for k, v in scope.get("headers") or []
+               if k.lower() not in _HOP and k.lower() not in (b"accept-encoding", b"x-forwarded-host", b"x-forwarded-proto")]
         fwd.append((b"host", f"localhost:{port}".encode()))
-        fwd.append((b"x-forwarded-host", orig_host.encode("latin-1")))
-        fwd.append((b"x-forwarded-proto", b"http"))
+        # Tell the app where visitors really are (Laravel, Django, WordPress… honour these).
+        fwd.append((b"x-forwarded-host", public_host.encode("latin-1")))
+        fwd.append((b"x-forwarded-proto", public_proto.encode()))
+        # Ask for an uncompressed body so leftover localhost links can be fixed.
+        fwd.append((b"accept-encoding", b"identity"))
 
         async def body_iter():
             while True:
@@ -220,19 +276,35 @@ class HostProxyMiddleware:
             await _send_page(send, st, page)
             return
 
+        swaps = _localhost_swaps(port, public_origin)
         out = []
         for k, v in resp.headers.raw:
             lk = k.lower()
             if lk in _HOP:
                 continue
-            if lk == b"location":
-                loc = v.decode("latin-1")
-                for prefix in (f"http://localhost:{port}", f"http://127.0.0.1:{port}"):
-                    if loc.startswith(prefix):
-                        v = (f"http://{orig_host}" + loc[len(prefix):]).encode("latin-1")
+            if lk in (b"location", b"content-location", b"refresh", b"link"):
+                v = _apply(v, swaps)
             out.append((k, v))
+
         try:
-            await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
+            if _rewritable(resp, scope["method"]):
+                body = b""
+                async for chunk in resp.aiter_raw():
+                    body += chunk
+                    if len(body) > _MAX_REWRITE:
+                        break
+                if len(body) <= _MAX_REWRITE:
+                    body = _apply(body, swaps)
+                    out = [(k, v) for k, v in out if k.lower() != b"content-length"]
+                    out.append((b"content-length", str(len(body)).encode()))
+                    await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
+                    await send({"type": "http.response.body", "body": body})
+                    return
+                # too big to rewrite: send what we have, then stream the rest untouched
+                await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
+                await send({"type": "http.response.body", "body": body, "more_body": True})
+            else:
+                await send({"type": "http.response.start", "status": resp.status_code, "headers": out})
             async for chunk in resp.aiter_raw():
                 await send({"type": "http.response.body", "body": chunk, "more_body": True})
             await send({"type": "http.response.body", "body": b""})

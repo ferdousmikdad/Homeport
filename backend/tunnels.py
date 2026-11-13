@@ -174,8 +174,12 @@ class TunnelManager:
 
     def start(self, app_id: str, port: int, *, manager_port: int = 7777,
               password: Optional[str] = None, expires_minutes: Optional[float] = None) -> dict:
-        """Open a Quick Tunnel to the app. With a password, the tunnel goes
-        through Homeport's proxy (``<id>.share.localhost``), which asks for it."""
+        """Open a Quick Tunnel to the app.
+
+        Every share goes through Homeport's proxy (``<id>.share.localhost``):
+        it asks for the password (if any), tells the app its public address
+        (X-Forwarded-Host/Proto) and rewrites leftover ``localhost:PORT``
+        links, so pages work for visitors — whatever the framework."""
         exe = self._require_binary()
         password = (password or "").strip() or None
         if password is not None and len(password) < 4:
@@ -189,12 +193,8 @@ class TunnelManager:
         self.stop(app_id)
 
         share = _Share(app_id, int(port), password, expires_at)
-        if password:
-            origin = f"http://localhost:{int(manager_port)}"
-            host = f"{app_id}{SHARE_HOST_SUFFIX}"
-        else:
-            origin = f"http://localhost:{int(port)}"
-            host = f"localhost:{int(port)}"
+        origin = f"http://localhost:{int(manager_port)}"
+        host = f"{app_id}{SHARE_HOST_SUFFIX}"
         cmd = [exe, "tunnel", "--no-autoupdate", "--http-host-header", host, "--url", origin]
 
         share.proc = self._spawn(cmd)
@@ -231,13 +231,21 @@ class TunnelManager:
         return due
 
     # password check used by the proxy ----------------------------------
-    def auth_info(self, app_id: str) -> Optional[tuple]:
-        """(salt, pw_hash, secret, port) for a password-protected share."""
+    def share_info(self, app_id: str) -> Optional[dict]:
+        """What the proxy needs for an active share (None when not shared)."""
         with self._lock:
             share = self._shares.get(app_id)
-            if share is None or share.pw_hash is None:
+            if share is None:
                 return None
-            return share.salt, share.pw_hash, share.secret, share.port
+            return {"port": share.port, "url": share.url, "protected": share.pw_hash is not None,
+                    "salt": share.salt, "pw_hash": share.pw_hash, "secret": share.secret}
+
+    def auth_info(self, app_id: str) -> Optional[tuple]:
+        """(salt, pw_hash, secret, port) for a password-protected share."""
+        info = self.share_info(app_id)
+        if info is None or not info["protected"]:
+            return None
+        return info["salt"], info["pw_hash"], info["secret"], info["port"]
 
     def check_password(self, app_id: str, password: str) -> bool:
         info = self.auth_info(app_id)

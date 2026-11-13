@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dial2" />
   <link rel="alternate icon" type="image/png" href="favicon.png?v=dial2" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=dial2" />
-  <link rel="stylesheet" href="style.css?v=22" />
+  <link rel="stylesheet" href="style.css?v=23" />
   <script>
     // Apply the saved theme before first paint to avoid a flash.
     try {
@@ -432,6 +432,34 @@
     </div>
   </div>
 
+  <!-- WordPress dialog -->
+  <div id="wp-backdrop" class="backdrop" hidden>
+    <div class="modal wp-dialog" role="dialog" aria-labelledby="wp-title">
+      <header class="modal-head">
+        <h2 id="wp-title">WordPress</h2>
+        <button type="button" id="wp-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body">
+        <p class="hint">Makes this WordPress site work here, on your phone and on share links &mdash; including copies of live sites. Your original <code>wp-config.php</code> is backed up and nothing in the database is rewritten.</p>
+        <ol id="wp-steps" class="wp-steps"></ol>
+        <div id="wp-warn" class="share-warn" hidden></div>
+        <div class="wp-import">
+          <div>
+            <strong>Import a database backup</strong>
+            <p class="hint">A <code>.sql</code> or <code>.sql.gz</code> export of the live site (from phpMyAdmin, your host or a backup plugin).</p>
+          </div>
+          <label class="btn small" id="wp-import-label">Choose file&hellip;<input type="file" id="wp-import-file" accept=".sql,.gz,.sql.gz" hidden /></label>
+        </div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" id="wp-admin" class="btn ghost">Open admin</button>
+        <button type="button" id="wp-open" class="btn ghost">Open site</button>
+        <span class="spacer"></span>
+        <button type="button" id="wp-setup" class="btn primary">Set up WordPress</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Databases & services dialog -->
   <div id="svc-backdrop" class="backdrop" hidden>
     <div class="modal svc-dialog" role="dialog" aria-labelledby="svc-title">
@@ -468,6 +496,6 @@
 
   <div id="toasts" class="toasts" aria-live="assertive"></div>
 
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

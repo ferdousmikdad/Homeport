@@ -21,9 +21,10 @@ Homeport works with the projects you already have, whatever they're built with.
 | 🧭 **Discover projects** | Pick your `~/Projects` folder; every project inside is detected and added in one click. |
 | 🏷️ **Named URLs** | Open apps at `http://blog.localhost:7777` instead of remembering ports. No hosts-file edits — every browser resolves `*.localhost` to your computer. Live reload keeps working. |
 | 📱 **Phone preview + QR** | One switch puts an app on your Wi-Fi; scan the QR code to open it on your phone. |
-| 🌍 **Public links, safely** | Share a running app on a free `https://…trycloudflare.com` link (no account). Add a **password** and an **auto-expiry** so nothing stays open by accident. |
+| 🌍 **Public links, safely** | Share a running app on a free `https://…trycloudflare.com` link (no account). Add a **password** and an **auto-expiry** so nothing stays open by accident. Leftover `localhost` links in pages are fixed on the fly, so any framework works for visitors. |
 | ⌨️ **Command palette** | Press **⌘K / Ctrl+K** and type: “stop api”, “logs blog”, “share portfolio”, “add redis”. Every action, keyboard-first. |
 | 🗄️ **Databases & services** | PostgreSQL, MySQL/MariaDB, Redis, MongoDB and Mailpit as one-click apps — using the server already on your computer, or Docker. Copy the connection URL or ready-made `.env` lines. |
+| 📝 **WordPress mode** | Drop in a WordPress site (even a copy of a live one), click **Set up**: database, `wp-config.php` and a live-URL helper are done for you. Import the `.sql` backup and it works on localhost, phones and share links. |
 | 🧱 **Workspaces** | Group apps (API + frontend + worker) and start them as one — in your order, each waiting until the previous is up. |
 | 🩺 **Crash fixer** | When an app stops, **Why?** reads the log and explains it in plain words — port in use, missing packages, no `.env`, tool not installed, database down — with one-click fixes. Works offline. |
 | 🌿 **Git on every card** | Branch, uncommitted changes, commits to pull — and **Pull & restart**. |
