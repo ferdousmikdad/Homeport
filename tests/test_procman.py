@@ -261,7 +261,8 @@ def test_subprocess_output_does_not_block_a_chatty_child(pm, tmp_path):
 def test_procman_v2_persistent_logs_and_markers(tmp_path):
     log_dir = tmp_path / "logs"
     pm1 = ProcessManager(log_dir=str(log_dir))
-    app = cfg("v2app", tmp_path, "echo 'hello v2'; exit 3")
+    # a Python one-liner so the same command works in sh and cmd.exe
+    app = cfg("v2app", tmp_path, f'"{sys.executable}" -c "print(\'hello v2\'); raise SystemExit(3)"')
 
     pm1.start(app)
     assert wait_until(lambda: pm1.info("v2app")["exit_code"] == 3)

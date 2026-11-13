@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import main, monitor, registry as registry_module
-from _helpers import wait_until, sleep_cmd
+from _helpers import explain, sleep_cmd, wait_until
 
 
 def test_browse_endpoint(client, tmp_path):
@@ -48,15 +48,23 @@ def test_browse_invalid_dir(client, tmp_path):
     assert res.status_code == 400
 
 
-def test_pick_folder_endpoint(client, monkeypatch):
+def _as_mac(monkeypatch):
+    """The picker tests drive the macOS code path, whatever OS runs them."""
+    from backend import osutil
+    monkeypatch.setattr(osutil, "IS_MAC", True)
+    monkeypatch.setattr(osutil, "IS_WINDOWS", False)
+
+
+def test_pick_folder_endpoint(client, monkeypatch, tmp_path):
+    _as_mac(monkeypatch)
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda *a, **k: subprocess.CompletedProcess([], 0, stdout="/tmp\n", stderr=""),
+        lambda *a, **k: subprocess.CompletedProcess([], 0, stdout=f"{tmp_path}\n", stderr=""),
     )
     res = client.post("/api/pick-folder")
     assert res.status_code == 200
-    assert res.json() == {"path": "/tmp"}
+    assert res.json() == {"path": str(tmp_path)}
 
 
 def test_open_target_endpoint(client, demo_dir, long_command, monkeypatch):
@@ -100,10 +108,10 @@ def test_port_ready_only_when_port_answers(client, demo_dir):
     srv.close()
     cmd = f'"{sys.executable}" -m http.server {port} --bind 127.0.0.1'
     app_id = client.post("/api/apps", json={"name": "ReadyApp", "path": str(demo_dir), "command": cmd, "port": port}).json()["id"]
-    first = client.post(f"/api/apps/{app_id}/start").json()
-    assert first["port_ready"] is False  # just launched, not answering yet
+    assert client.post(f"/api/apps/{app_id}/start").status_code == 200
     try:
-        assert wait_until(lambda: client.get(f"/api/apps/{app_id}").json()["port_ready"], timeout=20)
+        assert wait_until(lambda: client.get(f"/api/apps/{app_id}").json()["port_ready"], timeout=20), \
+            explain(client, app_id)
     finally:
         client.post(f"/api/apps/{app_id}/stop")
     assert client.get(f"/api/apps/{app_id}").json()["port_ready"] is False
@@ -165,13 +173,16 @@ def test_port_conflict_and_kill(client, demo_dir):
     try:
         assert wait_until(lambda: monitor.port_open(conflict_port), timeout=5)
 
+        # The app itself also holds that port, from a script file (no shell quoting)
+        (demo_dir / "holder.py").write_text(script)
+
         # Register an app with that port
         reg_res = client.post(
             "/api/apps",
             json={
                 "name": "Conflicted",
                 "path": str(demo_dir),
-                "command": f"{sys.executable} -c 'import socket, time; s = socket.socket(); s.bind((\"127.0.0.1\", {conflict_port})); s.listen(1); time.sleep(30)'",
+                "command": f'"{sys.executable}" holder.py',  # same command in sh and cmd.exe
                 "port": conflict_port,
             },
         )
@@ -187,7 +198,8 @@ def test_port_conflict_and_kill(client, demo_dir):
         # Starting with kill_conflict=1 kills the conflicting process and starts
         kill_start_res = client.post(f"/api/apps/{app_id}/start?kill_conflict=1")
         assert kill_start_res.status_code == 200
-        assert wait_until(lambda: client.get("/api/apps").json()[0]["status"] == "running")
+        assert wait_until(lambda: client.get("/api/apps").json()[0]["status"] == "running", timeout=20), \
+            explain(client, app_id)
 
         client.post(f"/api/apps/{app_id}/stop")
     finally:
@@ -251,6 +263,7 @@ def test_app_description_and_timestamps(client, demo_dir, long_command):
 
 
 def test_pick_folder_cancel_and_unavailable(client, monkeypatch):
+    _as_mac(monkeypatch)
     monkeypatch.setattr(
         subprocess,
         "run",

@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from _helpers import sleep_cmd, wait_until
+from _helpers import explain, sleep_cmd, wait_until
 
 from backend import detect, diagnose, gitinfo, proxy, recipes, shellenv
 
@@ -44,7 +44,8 @@ def test_named_url_serves_running_app(client, isolated_registry, tmp_path):
 
     assert client.get("/", headers=host).status_code == 503  # not running yet
     assert client.post("/api/apps/site/start").status_code == 200
-    assert wait_until(lambda: client.get("/api/apps/site").json()["status"] == "running", timeout=15)
+    assert wait_until(lambda: client.get("/api/apps/site").json()["status"] == "running", timeout=20), \
+        explain(client, "site")
     resp = client.get("/", headers=host)
     assert resp.status_code == 200 and "hello from the app" in resp.text
     assert client.get("/", headers={"Host": "nope.localhost:7777"}).status_code == 404

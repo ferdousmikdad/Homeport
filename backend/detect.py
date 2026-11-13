@@ -461,7 +461,8 @@ def _go(ctx: _Ctx) -> Optional[dict]:
     if not glob.glob(os.path.join(ctx.path, "*.go")):
         mains = sorted(glob.glob(os.path.join(ctx.path, "cmd", "*", "main.go")))
         if mains:
-            target = "./" + os.path.relpath(os.path.dirname(mains[0]), ctx.path)
+            # Go package paths always use "/", on Windows too
+            target = "./" + os.path.relpath(os.path.dirname(mains[0]), ctx.path).replace(os.sep, "/")
     return _result("Go", f"go run {target}", ctx.scanned_port)
 
 

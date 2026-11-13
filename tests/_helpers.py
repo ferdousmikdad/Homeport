@@ -30,3 +30,15 @@ def wait_value(getter: Callable[[], object], expected, timeout: float = 8.0, int
 def sleep_cmd(seconds: float) -> str:
     """A shell command that just waits — works in sh and cmd.exe alike."""
     return f'"{sys.executable}" -c "import time; time.sleep({seconds})"'
+
+
+def explain(client, app_id: str) -> str:
+    """Why an app isn't where a test expected: its state and last log lines."""
+    try:
+        st = client.get(f"/api/apps/{app_id}").json()
+        keep = {k: st.get(k) for k in ("status", "pid", "port", "detected_port", "port_ready",
+                                         "last_exit_code", "last_error", "command")}
+        logs = client.get(f"/api/apps/{app_id}/logs", params={"tail": 30}).text
+        return f"\nstate={keep}\nlogs:\n{logs[-3000:]}"
+    except Exception as exc:  # pragma: no cover - diagnostics only
+        return f"(couldn't explain: {exc})"
