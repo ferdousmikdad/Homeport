@@ -411,3 +411,12 @@ section { padding: 120px 0; }
   * { transition: none !important; animation: none !important; }
   .reveal .illus svg > * { opacity: 1; }
 }
+
+/* ---------- Hero: centred ---------- */
+.hero > .container > h1, .hero .lead, .hero .dl { text-align: center; }
+.hero .lead { margin-left: auto; margin-right: auto; }
+.hero .dl { align-items: center; }
+.hero .dl-other, .hero .term-tabs { justify-content: center; }
+.hero .term-install { text-align: left; }
+.hero .term-note { text-align: center; }
+.hero-art { text-align: left; }
