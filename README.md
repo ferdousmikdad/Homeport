@@ -36,7 +36,7 @@ categories, light & dark themes.
 
 ## Quick start
 
-You need **Python 3.9+** (and whatever your own projects use — Node, PHP, …).
+**Nothing to install first.** Download or clone this repository, then:
 
 | System  | Start Homeport |
 |---------|----------------|
@@ -44,14 +44,20 @@ You need **Python 3.9+** (and whatever your own projects use — Node, PHP, …)
 | Windows | Double-click **`run.bat`** |
 | Linux   | Run **`./run.sh`** |
 
-The first start creates a private Python environment (`.venv`) and installs
-the requirements (about a minute). Then <http://localhost:7777> opens.
+The first start sets everything up by itself (needs internet once, usually
+under a minute), then opens <http://localhost:7777>:
 
-- Windows: install Python from <https://www.python.org/downloads/> and tick
-  **"Add python.exe to PATH"**.
-- Ubuntu/Debian: `sudo apt install python3 python3-venv`.
+1. If this computer has **Python 3.9+**, Homeport uses it.
+2. If not, it downloads a **private copy of Python** (via
+   [uv](https://github.com/astral-sh/uv)) into the hidden `.runtime/` folder
+   here — nothing is installed system-wide and no admin rights are needed.
+3. It installs its few Python libraries into `.venv/` in this folder.
+
+After that, starting is instant; libraries are only reinstalled when
+`requirements.txt` changes. Deleting the folder removes everything.
 
 Options: `--port 8000`, `--no-browser` (e.g. `./run.sh --port 8000`).
+Your own projects still use their own tools (Node, PHP, …) from your system.
 
 ### Start at login
 

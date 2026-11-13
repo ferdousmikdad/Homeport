@@ -10,3 +10,4 @@ data/share.json
 data/apps.json
 data/*.tmp
 data/services/
+.runtime/
