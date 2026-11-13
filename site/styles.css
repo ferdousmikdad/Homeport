@@ -42,15 +42,6 @@ code, kbd, pre { font-family: var(--mono); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 ::selection { background: #fff; color: #000; }
 
-/* ---------- Announcement bar ---------- */
-.announce {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  height: 40px; padding: 0 16px; background: #141415; color: var(--text);
-  font-size: 13.5px; text-decoration: none; text-align: center;
-}
-.announce svg { width: 14px; height: 14px; transition: transform 0.2s; }
-.announce:hover svg { transform: translateX(3px); }
-
 /* ---------- Nav ---------- */
 .nav {
   position: sticky; top: 0; z-index: 50;
