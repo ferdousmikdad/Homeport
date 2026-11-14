@@ -399,6 +399,8 @@ section { padding: 120px 0; }
 .footer a:hover { color: var(--text); }
 .footer .brand { color: var(--text); }
 .footer .tag { margin-top: 14px; color: var(--text-3); max-width: 300px; }
+.footer .footer-badge { display: inline-block; margin-top: 18px; }
+.footer .footer-badge img { display: block; height: auto; }
 .footer-bottom { margin-top: 64px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--text-3); font-size: 13.5px; }
 
 /* ---------- Docs & changelog ---------- */
