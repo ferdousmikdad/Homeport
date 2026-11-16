@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, app_settings, feedback, github, updates, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, app_settings, feedback, github, previews, project_file, updates, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
@@ -322,6 +322,7 @@ async def _build_state(cfg: dict, now: float) -> dict:
         "wordpress": _wp_state(cfg),
         "entry": cfg.get("entry") or None,
         "feedback_open": feedback.open_count(app_id),
+        "preview": cfg.get("preview"),
     }
 
 
@@ -409,6 +410,20 @@ async def _tick_loop() -> None:
 # ---------------------------------------------------------------------------
 # lifespan
 # ---------------------------------------------------------------------------
+def _notify_comment(app_id: str, kind: str, item: dict) -> None:
+    """Desktop notification for a visitor's comment or reply (Settings → Sharing & feedback)."""
+    if app_settings.load().get("notify_comments") is False:
+        return
+    cfg = registry.get(app_id) or {}
+    who = (item.get("name") or "Someone").strip()
+    text = " ".join((item.get("message") or "").split())
+    text = text[:90] + ("…" if len(text) > 90 else "")
+    verb = "replied on" if kind == "reply" else "commented on"
+    import threading
+    threading.Thread(target=osutil.notify, args=(f"{who} {verb} {cfg.get('name') or app_id}", text),
+                     daemon=True).start()
+
+
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     global _ticker, pm
@@ -429,6 +444,12 @@ async def _lifespan(_app: FastAPI):
     local_ai.get_states = _snapshot
     local_ai.asgi_app = app
     github.asgi_app = app
+    project_file.asgi_app = app
+    previews.asgi_app = app
+    previews.get_app = lambda aid: registry.get(aid)
+    previews.add_app = lambda cfg: registry.add(cfg)
+    feedback.on_new = _notify_comment
+    project_file.registry_list = lambda: registry.list()
     feedback.app_exists = lambda aid: registry.get(aid) is not None
     share_routes.get_app_config = lambda aid: registry.get(aid)
     share_routes.get_running_port = _running_port
@@ -488,6 +509,8 @@ app.include_router(app_settings.router)
 app.include_router(feedback.router)
 app.include_router(github.router)
 app.include_router(updates.router)
+app.include_router(project_file.router)
+app.include_router(previews.router)
 app.include_router(share_routes.router)
 # Named URLs (<id>.localhost) and password-protected shares, routed by Host.
 app.add_middleware(proxy.HostProxyMiddleware)
@@ -1007,7 +1030,9 @@ async def discover(request: Request) -> dict:
             })
         return found
 
-    return {"path": root, "projects": await asyncio.to_thread(scan)}
+    # a homeport.json describes the whole setup: the UI offers it first
+    return {"path": root, "projects": await asyncio.to_thread(scan),
+            "project_file": project_file.find(root) is not None}
 
 
 @app.get("/api/apps/{app_id}/diagnose")

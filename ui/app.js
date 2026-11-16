@@ -619,6 +619,11 @@
     const titleRow = el("div", "card-title-row");
     const name = el("h2", "card-name");
     titleRow.appendChild(name);
+    const prChip = el("a", "pr-chip");
+    prChip.target = "_blank";
+    prChip.rel = "noopener noreferrer";
+    prChip.hidden = true;
+    titleRow.appendChild(prChip);
     const fbChip = icon(button("fb-chip", null), "comment");
     const fbCount = el("span", null, "");
     fbChip.appendChild(fbCount);
@@ -795,6 +800,8 @@
     const miConnEnv = mi("Copy .env settings");
     const miGitHub = mi("Open on GitHub");
     const miPRs = mi("Pull requests");
+    const miSharePR = mi("Share preview on pull request…");
+    const miRemovePreview = mi("Remove preview…", "danger");
     const miPull = mi("Pull & restart");
     miPull.title = "git pull --ff-only, then restart if it's running";
     const miFinder = mi(FOLDER_LABEL[serverPlatform] || "Open folder");
@@ -893,8 +900,10 @@
     });
     miPRs.addEventListener("click", () => {
       const cur = findApp(id);
-      if (cur && cur.github) window.open(cur.github.url + "/pulls", "_blank", "noopener");
+      if (cur && cur.github) openPulls(cur);
     });
+    miSharePR.addEventListener("click", () => sharePreviewOnPR(id));
+    miRemovePreview.addEventListener("click", () => removePreview(id));
     gitChip.addEventListener("click", (e) => {
       const cur = findApp(id);
       if (!cur || !cur.github || !cur.github.ci_url) return;
@@ -970,7 +979,7 @@
       el: card,
       logo, logoKey: null, stats,
       shareBar, shareText, shareLink, shareBtn, shareMeta, gitChip, whyBtn, miPhone, miPull, miConnUrl, miConnEnv,
-      miGitHub, miPRs,
+      miGitHub, miPRs, miSharePR, miRemovePreview, prChip,
       shareFb, shareFbState, fbChip, fbCount, miFeedback, cardLink, cardLinkText, upChip, openBtn, startBtn, shareMain,
       wpBar, miWp,
       name, path, desc, status, statusText,
@@ -1077,8 +1086,16 @@
     }
     v.miPull.hidden = !git;
     const ghs = app.github;
+    const pv = app.preview;
     v.miGitHub.hidden = !ghs;
-    v.miPRs.hidden = !ghs || ghs.prs === null || ghs.prs === undefined;
+    v.miPRs.hidden = !ghs || !!pv;
+    v.miSharePR.hidden = v.miRemovePreview.hidden = !pv;
+    v.prChip.hidden = !pv;
+    if (pv) {
+      v.prChip.textContent = "PR #" + pv.number;
+      v.prChip.href = pv.url || (ghs ? ghs.url + "/pull/" + pv.number : "#");
+      v.prChip.title = "Preview of pull request #" + pv.number + (pv.title ? ": " + pv.title : "");
+    }
     if (ghs && typeof ghs.prs === "number") v.miPRs.textContent = "Pull requests (" + ghs.prs + (ghs.prs >= 100 ? "+" : "") + ")";
     const ci = ghs && ghs.ci;
     v.gitChip.dataset.ci = ci || "";
@@ -1727,6 +1744,13 @@
       stop.addEventListener("click", () => groupAction(cat, "stop"));
       tools.appendChild(play);
       tools.appendChild(stop);
+      if (cat && cat !== "Services") {
+        const save = button("group-btn", null, "Save as homeport.json");
+        save.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>';
+        save.title = "Save this group as homeport.json — teammates get the same setup in one click";
+        save.addEventListener("click", () => openProjectExport(cat));
+        tools.appendChild(save);
+      }
       h.appendChild(tools);
       state.groupHeads.set(key, h);
     }
@@ -2152,6 +2176,18 @@
       }
     });
     actions.append(show, flip, del);
+    if (item.issue && item.issue.url) {
+      const link = el("a", "btn small ghost", "Issue #" + item.issue.number + " ↗");
+      link.href = item.issue.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      actions.appendChild(link);
+    } else if (app.github || app.preview) {
+      const issue = button("btn small ghost", "Create issue…");
+      issue.title = "Turn this comment into a GitHub issue";
+      issue.addEventListener("click", () => commentToIssue(app, item, renderFeedback));
+      actions.appendChild(issue);
+    }
     row.appendChild(actions);
     return row;
   }
@@ -2473,6 +2509,16 @@
     $("disc-add").textContent = n ? "Add " + n + (n === 1 ? " app" : " apps") : "Add apps";
   }
 
+  function discProjectBanner(list) {
+    if (!disc.projectFile) return;
+    const box = el("div", "disc-project");
+    box.appendChild(el("span", null, "This folder has a homeport.json describing its whole setup."));
+    const go = button("btn small primary", "Set up project");
+    go.addEventListener("click", () => openProjectSetup(disc.projectFile));
+    box.appendChild(go);
+    list.prepend(box);
+  }
+
   async function scanFolder() {
     const path = $("disc-path").value.trim();
     if (!path) return;
@@ -2482,13 +2528,16 @@
     try {
       const res = await request("/api/discover", { method: "POST", body: JSON.stringify({ path: path }) });
       disc.projects = res.projects;
+      disc.projectFile = res.project_file ? res.path : null;
       if (!disc.projects.length) {
         list.textContent = "";
         list.appendChild(el("p", "hint", "No projects found in this folder."));
+        discProjectBanner(list);
         updateDiscButton();
         return;
       }
       renderDisc();
+      discProjectBanner(list);
     } catch (err) {
       list.textContent = "";
       list.appendChild(el("p", "hint", "Couldn't scan: " + err.message));
@@ -3020,6 +3069,14 @@
       return;
     }
     if (els.fPath.value.trim() !== p) return; // the user moved on
+    if (res.project_file) {
+      // the repo describes its own setup: offer that first
+      const all = button("link-btn", "Set up the whole project from its homeport.json");
+      all.addEventListener("click", () => openProjectSetup(res.path));
+      els.fPathHint.textContent = "";
+      els.fPathHint.appendChild(all);
+      return;
+    }
     const same = (a, b) => a.replace(/[\\/]+$/, "") === b.replace(/[\\/]+$/, "");
     let root = res.projects.find((x) => same(x.path, res.path));
     const inside = res.projects.filter((x) => x !== root);
@@ -3713,6 +3770,9 @@
       else if (!$("fb-backdrop").hidden) hideFeedback();
       else if (!$("gh-backdrop").hidden) hideGitHub();
       else if (!$("upd-backdrop").hidden) hideUpdate();
+      else if (!$("proj-backdrop").hidden) hideProject();
+      else if (!$("compose-backdrop").hidden) hideCompose();
+      else if (!$("prs-backdrop").hidden) $("prs-backdrop").hidden = true;
       else if (!$("wp-backdrop").hidden) hideWordPress();
       else if (!els.browseBackdrop.hidden) hideFolderBrowser();
       else if (!els.backdrop.hidden) hideModal();
@@ -4098,6 +4158,328 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Pull-request previews, posting to GitHub, comments → issues         */
+  /* ------------------------------------------------------------------ */
+
+  // A small "write something, then send it" dialog. Nothing is sent to GitHub
+  // until the user clicks the button — and they see (and can edit) the text.
+  const compose = { onSend: null, busy: false };
+
+  function openCompose(opts) {
+    compose.onSend = opts.onSend;
+    $("compose-title").textContent = opts.title;
+    $("compose-hint").textContent = opts.hint || "";
+    $("compose-title-field").hidden = opts.subject === undefined;
+    $("compose-subject").value = opts.subject || "";
+    $("compose-text-label").textContent = opts.textLabel || "Text";
+    $("compose-text").value = opts.text || "";
+    $("compose-send").textContent = opts.send || "Post";
+    $("compose-send").disabled = false;
+    $("compose-backdrop").hidden = false;
+    (opts.subject !== undefined ? $("compose-subject") : $("compose-text")).focus();
+  }
+
+  function hideCompose() {
+    $("compose-backdrop").hidden = true;
+    compose.onSend = null;
+  }
+
+  $("compose-send").addEventListener("click", async () => {
+    if (!compose.onSend || compose.busy) return;
+    compose.busy = true;
+    const btn = $("compose-send");
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      await compose.onSend($("compose-subject").value.trim(), $("compose-text").value.trim());
+      hideCompose();
+    } catch (err) {
+      toast(err.message, "err");
+      btn.disabled = false;
+    } finally {
+      compose.busy = false;
+      btn.textContent = label;
+    }
+  });
+  $("compose-close").addEventListener("click", hideCompose);
+  $("compose-cancel").addEventListener("click", hideCompose);
+
+  // ---- the pull requests of an app, with Preview buttons
+  async function openPulls(app) {
+    const body = $("prs-body");
+    body.textContent = "";
+    body.appendChild(el("p", "hint", "Loading pull requests…"));
+    $("prs-title").textContent = "Pull requests · " + app.name;
+    $("prs-github").href = app.github ? app.github.url + "/pulls" : "#";
+    $("prs-backdrop").hidden = false;
+    let data;
+    try {
+      data = await request("/api/apps/" + encodeURIComponent(app.id) + "/pulls");
+    } catch (err) {
+      body.textContent = "";
+      body.appendChild(el("p", "hint", err.status === 401 ? "Connect GitHub to see and preview pull requests (Settings → GitHub)." : "Couldn't load pull requests: " + err.message));
+      return;
+    }
+    body.textContent = "";
+    body.appendChild(el("p", "hint", "Preview runs a pull request next to your copy, on its own port — in a separate folder, so your own work is never touched."));
+    if (!data.pulls.length) body.appendChild(el("p", "hint", "No open pull requests."));
+    data.pulls.forEach((pr) => {
+      const row = el("div", "prs-row");
+      const text = el("div", "prs-text");
+      const t = el("a", "prs-name", "#" + pr.number + " " + pr.title);
+      t.href = pr.url;
+      t.target = "_blank";
+      t.rel = "noopener";
+      text.appendChild(t);
+      text.appendChild(el("span", "prs-meta", [pr.author ? "@" + pr.author : "", pr.branch, pr.draft ? "draft" : "", pr.updated_at ? "updated " + ghTimeAgo(pr.updated_at) : ""].filter(Boolean).join(" · ")));
+      row.appendChild(text);
+      const go = button("btn small" + (pr.preview ? "" : " primary"), pr.preview ? "Open preview" : "Preview");
+      go.addEventListener("click", async () => {
+        if (pr.preview) {
+          $("prs-backdrop").hidden = true;
+          return openInBrowser(pr.preview);
+        }
+        go.disabled = true;
+        go.textContent = "Getting the code…";
+        try {
+          const st = await request("/api/apps/" + encodeURIComponent(app.id) + "/previews", {
+            method: "POST",
+            body: JSON.stringify({ number: pr.number, title: pr.title, url: pr.url, start: true }),
+          });
+          replaceAppState(st);
+          watchToOpen(st);
+          $("prs-backdrop").hidden = true;
+          toast("Preview of #" + pr.number + " is starting", "ok");
+          fetchApps();
+        } catch (err) {
+          toast(err.message, "err");
+          go.disabled = false;
+          go.textContent = "Preview";
+        }
+      });
+      row.appendChild(go);
+      body.appendChild(row);
+    });
+  }
+
+  $("prs-close").addEventListener("click", () => ($("prs-backdrop").hidden = true));
+  $("prs-done").addEventListener("click", () => ($("prs-backdrop").hidden = true));
+
+  // ---- share a preview on its pull request
+  async function sharePreviewOnPR(id) {
+    let app = findApp(id);
+    if (!app || !app.preview) return;
+    if (!isActive(app)) return toast("Start the preview first", "warn");
+    if (!app.share || app.share.status !== "live") {
+      toast("Creating a public link with comments on…", "ok");
+      try {
+        await request("/api/apps/" + encodeURIComponent(id) + "/share", {
+          method: "POST",
+          body: JSON.stringify({ feedback: true, expires_minutes: Number(loadPref("share_expiry", "60")) || null }),
+        });
+      } catch (err) {
+        return toast("Couldn't share: " + err.message, "err");
+      }
+      const until = Date.now() + 45000;
+      while (Date.now() < until) {
+        await new Promise((r) => setTimeout(r, 1500));
+        await fetchApps();
+        app = findApp(id);
+        if (app && app.share && (app.share.status === "live" || app.share.status === "error")) break;
+      }
+      if (!app || !app.share || !app.share.url) return toast("The public link isn't ready yet — try again in a moment", "warn");
+    }
+    const lines = ["**Preview of this pull request:** " + app.share.url, ""];
+    if (app.share.feedback) lines.push("Anyone with the link can leave comments right on the page — press **C** and click a spot.");
+    if (app.share.expires_at) lines.push("", "The link stops working in about " + timeLeft(app.share.expires_at) + ".");
+    lines.push("", "_Shared with [Homeport](https://homeport.ferdousmikdad.com)._");
+    openCompose({
+      title: "Share preview on PR #" + app.preview.number,
+      hint: "This will be posted as a comment on the pull request on GitHub. Edit it if you like.",
+      textLabel: "Comment",
+      text: lines.join("\n"),
+      send: "Post comment",
+      onSend: async (_subject, text) => {
+        const res = await request("/api/apps/" + encodeURIComponent(id) + "/preview/comment", { method: "POST", body: JSON.stringify({ body: text }) });
+        toast("Posted on PR #" + app.preview.number, "ok");
+        if (res.url) window.open(res.url, "_blank", "noopener");
+      },
+    });
+  }
+
+  async function removePreview(id) {
+    const app = findApp(id);
+    if (!app || !app.preview) return;
+    showConfirm("Remove preview of PR #" + app.preview.number + "?",
+      "This stops the preview and deletes its folder (" + app.path + "). Your own copy of the code isn't touched.",
+      "Remove preview", async () => {
+        try {
+          const res = await request("/api/apps/" + encodeURIComponent(id) + "/preview", { method: "DELETE" });
+          toast(res.warning || "Preview removed", res.warning ? "warn" : "ok");
+          fetchApps();
+        } catch (err) {
+          toast("Couldn't remove it: " + err.message, "err");
+        }
+      }, "danger");
+  }
+
+  // ---- a visitor comment → a GitHub issue
+  async function commentToIssue(app, item, onDone) {
+    let draft;
+    try {
+      draft = await request("/api/apps/" + encodeURIComponent(app.id) + "/feedback/" + item.id + "/issue-draft");
+    } catch (err) {
+      return toast(err.message, "err");
+    }
+    openCompose({
+      title: "Create a GitHub issue",
+      hint: "From " + (item.name || "a visitor") + "'s comment. Edit it before it's created in " + (app.github ? app.github.repo : "the app's repo") + ".",
+      subject: draft.title,
+      textLabel: "Description",
+      text: draft.body,
+      send: "Create issue",
+      onSend: async (subject, text) => {
+        if (!subject) throw new Error("The issue needs a title");
+        const res = await request("/api/apps/" + encodeURIComponent(app.id) + "/feedback/" + item.id + "/issue", {
+          method: "POST",
+          body: JSON.stringify({ title: subject, body: text }),
+        });
+        item.issue = res.issue;
+        toast("Created issue #" + res.issue.number, "ok");
+        if (onDone) onDone();
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* homeport.json: review a repo's whole setup, or save a group as one   */
+  /* ------------------------------------------------------------------ */
+
+  const proj = { mode: null, data: null, busy: false };
+
+  async function openProjectSetup(pathOrData) {
+    let data = pathOrData;
+    if (typeof pathOrData === "string") {
+      try {
+        data = await request("/api/project?path=" + encodeURIComponent(pathOrData));
+      } catch (err) {
+        return toast(err.message, "err");
+      }
+    }
+    if (!data || !data.found) return toast("No homeport.json found in that folder", "warn");
+    proj.mode = "setup";
+    proj.data = data;
+    hideModal();
+    $("disc-backdrop").hidden = true;
+    $("proj-title").textContent = data.error ? "homeport.json has a problem" : "Set up “" + data.name + "”";
+    const body = $("proj-body");
+    body.textContent = "";
+    if (data.error) {
+      body.appendChild(el("p", "proj-error", data.error));
+      body.appendChild(el("p", "hint", data.file || ""));
+      $("proj-go").hidden = true;
+      $("proj-start-wrap").hidden = true;
+      $("proj-backdrop").hidden = false;
+      return;
+    }
+    body.appendChild(el("p", "hint", "This folder describes its setup in homeport.json. Check what it will run — nothing is added until you click Set up."));
+    if (data.services.length) {
+      const g = setGroup("Databases");
+      data.services.forEach((sv) => g.group.appendChild(setRow(sv.name, sv.existing ? "Uses your existing " + sv.existing_name : "Will be added", [setValue(sv.existing ? "Reuse" : "New", sv.existing ? "" : "ok")])));
+      body.appendChild(g.wrap);
+    }
+    const g = setGroup("Apps — started in this order");
+    data.apps.forEach((a, i) => {
+      const row = setRow((i + 1) + ". " + a.name, a.rel === "." ? "The repo folder" : a.rel, []);
+      const right = row.querySelector(".set-row-right");
+      if (a.registered) right.appendChild(setValue("Already added"));
+      else right.appendChild(setValue(a.port ? "port " + a.port : "port picked automatically"));
+      const cmd = el("code", "proj-cmd", a.command || "(no command — set one after adding)");
+      cmd.title = a.detected ? "Detected by Homeport" : "From homeport.json";
+      row.querySelector(".set-row-text").appendChild(cmd);
+      const envKeys = Object.keys(a.env || {});
+      if (envKeys.length) row.querySelector(".set-row-text").appendChild(el("span", "set-row-sub", "Environment: " + envKeys.join(", ")));
+      g.group.appendChild(row);
+    });
+    body.appendChild(g.wrap);
+    if (data.warnings.length) {
+      const w = el("ul", "proj-warn");
+      data.warnings.forEach((t) => w.appendChild(el("li", null, t)));
+      body.appendChild(w);
+    }
+    body.appendChild(el("p", "hint", "Commands come from the repo — only set up projects you trust, just like running their npm scripts."));
+    const todo = data.apps.filter((a) => !a.registered).length;
+    $("proj-go").textContent = todo ? "Set up " + todo + (todo === 1 ? " app" : " apps") : "Nothing new to add";
+    $("proj-go").disabled = !todo;
+    $("proj-go").hidden = false;
+    $("proj-start-wrap").hidden = false;
+    $("proj-backdrop").hidden = false;
+  }
+
+  async function openProjectExport(category) {
+    let res;
+    try {
+      res = await request("/api/project/export", { method: "POST", body: JSON.stringify({ category: category }) });
+    } catch (err) {
+      return toast(err.message, "err");
+    }
+    proj.mode = "export";
+    proj.data = { category: category, res: res };
+    $("proj-title").textContent = "Save “" + category + "” as homeport.json";
+    const body = $("proj-body");
+    body.textContent = "";
+    body.appendChild(el("p", "hint", "Commit this file with your code. Anyone who opens the repo in Homeport — or adds it from GitHub — gets the same apps, databases and start order in one click."));
+    body.appendChild(el("p", "proj-path", res.file));
+    body.appendChild(el("pre", "proj-json", res.text));
+    if (res.exists) body.appendChild(el("p", "proj-error", "A homeport.json already exists there — saving will replace it."));
+    $("proj-go").textContent = res.exists ? "Replace file" : "Save file";
+    $("proj-go").disabled = false;
+    $("proj-go").hidden = false;
+    $("proj-start-wrap").hidden = true;
+    $("proj-backdrop").hidden = false;
+  }
+
+  function hideProject() {
+    $("proj-backdrop").hidden = true;
+    proj.mode = null;
+  }
+
+  $("proj-go").addEventListener("click", async () => {
+    if (proj.busy) return;
+    proj.busy = true;
+    const btn = $("proj-go");
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = proj.mode === "setup" ? "Setting up…" : "Saving…";
+    try {
+      if (proj.mode === "setup") {
+        const res = await request("/api/project/setup", { method: "POST", body: JSON.stringify({ path: proj.data.root, start: $("proj-start").checked }) });
+        hideProject();
+        const n = res.created.length;
+        const dbs = res.services.length;
+        toast("Set up " + res.name + ": " + n + (n === 1 ? " app" : " apps") + (dbs ? " and " + dbs + (dbs === 1 ? " database" : " databases") : "") + (res.started ? " — starting them in order" : ""), "ok");
+        fetchApps();
+      } else if (proj.mode === "export") {
+        const res = await request("/api/project/export", { method: "POST", body: JSON.stringify({ category: proj.data.category, write: true, overwrite: proj.data.res.exists }) });
+        hideProject();
+        toast("Saved " + res.file, "ok");
+      }
+    } catch (err) {
+      toast(err.message, "err");
+      btn.disabled = false;
+      btn.textContent = label;
+    } finally {
+      proj.busy = false;
+    }
+  });
+  $("proj-close").addEventListener("click", hideProject);
+  $("proj-cancel").addEventListener("click", hideProject);
+  $("proj-backdrop").addEventListener("mousedown", (e) => {
+    if (e.target === $("proj-backdrop")) hideProject();
+  });
+
+  /* ------------------------------------------------------------------ */
   /* Update check: a quiet notice when a newer Homeport is out            */
   /* ------------------------------------------------------------------ */
 
@@ -4303,6 +4685,10 @@
         body: JSON.stringify({ repo: sel.full_name, start: $("gh-start").checked, description: sel.description || "" }),
       });
       hideGitHub();
+      if (res.project) {
+        openProjectSetup(res.project);
+        return;
+      }
       toast("Added " + res.app.name + (res.app.status === "running" || res.app.status === "starting" ? " — starting it" : ""), "ok");
       if (res.app.status === "running" || res.app.status === "starting") watchToOpen(res.app);
       fetchApps();
@@ -4784,6 +5170,8 @@
     g.group.appendChild(setRow("Link stops after", null, [setSelect(
       [["15", "15 minutes"], ["60", "1 hour"], ["480", "8 hours"], ["1440", "24 hours"], ["", "Never"]],
       loadPref("share_expiry", "60"), (v) => savePref("share_expiry", v))]));
+    g.group.appendChild(setRow("Notify me about new comments", "A desktop notification when a visitor comments or replies",
+      [setSwitch(settings.prefs.notify_comments !== false, "Notify me about new comments", (on) => saveSetting({ notify_comments: on }))]));
     g.group.appendChild(setRow("Let visitors leave feedback", "Anyone with the link sees the open comments",
       [setSwitch(loadPref("share_feedback", "0") === "1", "Let visitors leave feedback", (on) => savePref("share_feedback", on ? "1" : "0"))]));
     body.appendChild(g.wrap);

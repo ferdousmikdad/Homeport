@@ -73,6 +73,7 @@ _WRITABLE = (
     "env",
     "service",
     "wordpress",
+    "preview",
     "entry",
     "created_at",
     "updated_at",
@@ -178,6 +179,8 @@ def _normalize(cfg: dict, *, app_id: str) -> dict:
         "env": _coerce_env(cfg.get("env")),
         "service": cfg.get("service") if isinstance(cfg.get("service"), dict) else None,
         "wordpress": cfg.get("wordpress") if isinstance(cfg.get("wordpress"), dict) else None,
+        # a pull-request preview: {of, number, title, url, worktree, branch}
+        "preview": cfg.get("preview") if isinstance(cfg.get("preview"), dict) else None,
         # single-file apps: the page to open, relative to ``path`` (no "..", no absolute paths)
         "entry": (str(cfg["entry"]).strip() if isinstance(cfg.get("entry"), str) and cfg["entry"].strip()
                   and not os.path.isabs(cfg["entry"]) and ".." not in cfg["entry"].replace("\\", "/").split("/")

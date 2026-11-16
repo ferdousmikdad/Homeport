@@ -392,6 +392,15 @@ async def clone(request: Request) -> dict:
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    from . import project_file
+    if project_file.find(target):  # the repo describes its own setup: let the user review it first
+        with _lock:
+            _remote_cache.pop(("remote", target), None)
+        try:
+            return {"app": None, "path": target, "project": project_file.inspect(target)}
+        except project_file.ProjectError as exc:
+            return {"app": None, "path": target, "project": {"found": True, "error": str(exc)}}
+
     code, app = await _api("POST", "/api/apps", json={"name": _pretty(repo), "path": target,
                                                        "description": str(body.get("description") or "")[:300]})
     if code not in (200, 201):

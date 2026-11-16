@@ -11,7 +11,7 @@ from backend import main, procman, registry as registry_module
 
 
 @pytest.fixture(autouse=True)
-def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
+def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch, request):
     """Keep test logs out of data/logs, and expect sh-style generated
     commands unless a test asks for Windows forms explicitly."""
     from backend import detect
@@ -46,6 +46,10 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch):
     async def _no_loop():
         return None
     monkeypatch.setattr(updates, "background_loop", _no_loop)
+    # never show real desktop notifications from tests
+    from backend import osutil
+    if request.node.name != "test_notify_never_raises":  # that one checks the real function
+        monkeypatch.setattr(osutil, "notify", lambda title, message: None)
 
 
 @pytest.fixture

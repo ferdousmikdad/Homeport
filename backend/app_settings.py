@@ -22,7 +22,7 @@ from . import osutil, paths
 
 router = APIRouter()
 
-DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None}
+DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None, "notify_comments": None}
 _lock = threading.Lock()
 
 
@@ -64,6 +64,10 @@ def _validate(key: str, value: Any) -> Any:
     if key == "local_model":
         if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][\w.\-/]*(:[\w.\-]+)?$", value) or len(value) > 120:
             raise HTTPException(status_code=400, detail="invalid model name")
+        return value
+    if key == "notify_comments":  # None/True = on (the default), False = off
+        if not isinstance(value, bool):
+            raise HTTPException(status_code=400, detail="notify_comments must be true or false")
         return value
     if key == "check_updates":  # None/True = on (the default), False = off
         if not isinstance(value, bool):

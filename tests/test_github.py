@@ -198,3 +198,21 @@ def test_pull_uses_the_login_for_github_remotes(tmp_path, gh):
     env = gitinfo._github_auth(git, repo)
     assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader" and TOKEN not in env["GIT_CONFIG_VALUE_0"]
     assert "x-access-token" not in open(os.path.join(repo, ".git", "config")).read()
+
+
+@needs_git
+def test_clone_with_homeport_json_asks_for_review(client, gh, tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "web").mkdir()
+    (src / "web" / "index.html").write_text("<h1>x</h1>")
+    (src / "homeport.json").write_text('{"name": "Team", "apps": [{"name": "Web", "path": "web"}]}')
+    run = lambda *a: subprocess.run(["git", *a], cwd=src, check=True, capture_output=True)  # noqa: E731
+    run("init", "-q")
+    run("add", ".")
+    run("-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "-m", "init")
+    app_settings.update({"projects_dir": str(tmp_path / "projects")})
+    monkeypatch.setattr(github, "clone_url", lambda owner, repo: str(src))
+    res = client.post("/api/github/clone", json={"repo": "octo/team", "start": True}).json()
+    assert res["app"] is None and res["project"]["name"] == "Team" and res["project"]["apps"][0]["name"] == "Web"
+    assert client.get("/api/apps").json() == []  # nothing added until the user reviews it

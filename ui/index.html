@@ -568,6 +568,54 @@
     </div>
   </div>
 
+  <div id="proj-backdrop" class="backdrop" hidden>
+    <div class="modal proj-dialog" role="dialog" aria-labelledby="proj-title">
+      <header class="modal-head">
+        <h2 id="proj-title">Set up project</h2>
+        <button type="button" id="proj-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div id="proj-body" class="form-body proj-body"></div>
+      <footer class="modal-foot">
+        <label class="check small" id="proj-start-wrap"><input type="checkbox" id="proj-start" checked /> Start after setup</label>
+        <span class="spacer"></span>
+        <button type="button" id="proj-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="proj-go" class="btn primary">Set up</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="prs-backdrop" class="backdrop" hidden>
+    <div class="modal prs-dialog" role="dialog" aria-labelledby="prs-title">
+      <header class="modal-head">
+        <h2 id="prs-title">Pull requests</h2>
+        <button type="button" id="prs-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div id="prs-body" class="form-body prs-body"></div>
+      <footer class="modal-foot">
+        <a id="prs-github" class="btn ghost" target="_blank" rel="noopener">Open on GitHub</a>
+        <button type="button" id="prs-done" class="btn">Close</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="compose-backdrop" class="backdrop" hidden>
+    <div class="modal compose-dialog" role="dialog" aria-labelledby="compose-title">
+      <header class="modal-head">
+        <h2 id="compose-title">Compose</h2>
+        <button type="button" id="compose-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="form-body compose-body">
+        <p id="compose-hint" class="hint"></p>
+        <label class="field" id="compose-title-field"><span>Title</span><input type="text" id="compose-subject" class="input" maxlength="250" /></label>
+        <label class="field"><span id="compose-text-label">Text</span><textarea id="compose-text" class="input" rows="9"></textarea></label>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" id="compose-cancel" class="btn ghost">Cancel</button>
+        <button type="button" id="compose-send" class="btn primary">Post</button>
+      </footer>
+    </div>
+  </div>
+
   <div id="settings-backdrop" class="backdrop" hidden>
     <div class="modal settings-dialog" role="dialog" aria-labelledby="settings-title">
       <header class="modal-head">

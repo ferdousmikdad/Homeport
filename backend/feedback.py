@@ -160,6 +160,8 @@ def add(app_id: str, data: dict, *, source: str = "share") -> dict:
             drop = {i["id"] for i in (resolved or current)[: len(current) - MAX_ITEMS]}
             current = [i for i in current if i["id"] not in drop][-MAX_ITEMS:]
         _save(app_id, current)
+    if item["source"] == "share":
+        _announce(app_id, "comment", item)
     return item
 
 
@@ -184,8 +186,35 @@ def add_reply(app_id: str, fid: str, data: dict, *, source: str = "share", open_
                     raise ValueError("this comment has too many replies")
                 replies.append(reply)
                 _save(app_id, current)
+                if reply["source"] == "share":
+                    _announce(app_id, "reply", reply)
                 return reply
     return None
+
+
+def set_issue(app_id: str, fid: str, issue: dict) -> Optional[dict]:
+    """Remember the GitHub issue made from a comment."""
+    with _lock:
+        current = _load(app_id)
+        for item in current:
+            if item.get("id") == fid:
+                item["issue"] = {"number": issue.get("number"), "url": issue.get("url")}
+                _save(app_id, current)
+                return item
+    return None
+
+
+# Called with (app_id, kind, item) when a visitor posts a comment ("comment") or
+# a reply ("reply") — main.py uses it for desktop notifications.
+on_new: Optional[Callable[[str, str, dict], None]] = None
+
+
+def _announce(app_id: str, kind: str, item: dict) -> None:
+    if on_new is not None:
+        try:
+            on_new(app_id, kind, item)
+        except Exception:  # a notification must never break saving a comment
+            pass
 
 
 def set_status(app_id: str, fid: str, status: str) -> Optional[dict]:
