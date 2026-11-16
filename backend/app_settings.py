@@ -58,8 +58,8 @@ def _validate(key: str, value: Any) -> Any:
     if value is None:
         return None
     if key == "ai_provider":
-        if value not in ("claude", "local"):
-            raise HTTPException(status_code=400, detail="ai_provider must be 'claude' or 'local'")
+        if value not in ("claude", "antigravity", "local"):
+            raise HTTPException(status_code=400, detail="ai_provider must be 'claude', 'antigravity' or 'local'")
         return value
     if key == "local_model":
         if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][\w.\-/]*(:[\w.\-]+)?$", value) or len(value) > 120:

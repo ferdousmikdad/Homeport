@@ -1,12 +1,15 @@
-"""backend/ai_routes.py — on-demand AI assistant backed by the local `claude` CLI.
+"""backend/ai_routes.py — on-demand AI assistant backed by a local agent CLI.
 
 Runs Claude Code headless (`claude -p`) with the user's logged-in Claude
-account. Nothing runs in the background: a run starts only when the UI posts a
-prompt, and stops when it finishes, is cancelled, or the client disconnects.
+account, or Google Antigravity's CLI (`agy --print`) with their Google account
+and Gemini models. Nothing runs in the background: a run starts only when the
+UI posts a prompt, and stops when it finishes, is cancelled, or the client
+disconnects.
 
-    GET  /api/ai/status  -> {available, cli, version, busy}
-    POST /api/ai/ask     body {prompt, model?, session_id?, mode: "act"|"ask"}
-                         -> SSE stream of simplified events (see _translate)
+    GET  /api/ai/status  -> {available, cli, version, busy, antigravity: {available, cli, version}}
+    GET  /api/ai/models?agent=antigravity -> {models: [{id, label}]}
+    POST /api/ai/ask     body {prompt, agent?: "claude"|"antigravity", model?, session_id?, mode: "act"|"ask"}
+                         -> SSE stream of simplified events (see _translate, _translate_agy)
     POST /api/ai/stop    -> {stopped: bool}
 """
 from __future__ import annotations
@@ -49,19 +52,30 @@ _ASK_TOOLS = ["Read", "Grep", "Glob", "Bash(curl:*)", "Bash(lsof:*)", "Bash(ps:*
 
 _proc: asyncio.subprocess.Process | None = None
 _version: str | None = None
+_agy_version: str | None = None
+_agy_models: list[dict] | None = None
 
 
-def find_cli() -> str | None:
-    found = shutil.which("claude")
+def _which(base: str) -> str | None:
+    found = shutil.which(base)
     if found:
         return found
-    names = ("claude.exe", "claude.cmd", "claude") if osutil.IS_WINDOWS else ("claude",)
+    names = (base + ".exe", base + ".cmd", base) if osutil.IS_WINDOWS else (base,)
     for directory in _EXTRA_PATHS:
         for name in names:
             candidate = os.path.join(directory, name)
             if os.path.isfile(candidate) and (osutil.IS_WINDOWS or os.access(candidate, os.X_OK)):
                 return candidate
     return None
+
+
+def find_cli() -> str | None:
+    return _which("claude")
+
+
+def find_agy() -> str | None:
+    """Google Antigravity's command-line agent (installed with Antigravity as `agy`)."""
+    return _which("agy")
 
 
 def _child_env() -> dict[str, str]:
@@ -179,6 +193,76 @@ def _translate(event: dict) -> list[dict]:
     return out
 
 
+def build_agy_command(cli: str, *, model: str | None, session_id: str | None, mode: str, prompt: str) -> list[str]:
+    # agy has no --append-system-prompt: the instructions go in front of the request.
+    # --print=<text> keeps a prompt that starts with "-" from being read as a flag.
+    cmd = [cli, "--output-format", "stream-json"]
+    if model:
+        cmd += ["--model", model]
+    if session_id:
+        cmd += ["--conversation", session_id]
+    if mode == "act":
+        cmd += ["--dangerously-skip-permissions"]
+    else:
+        cmd += ["--mode", "plan"]  # plans and reads, never edits the workspace
+    cmd.append("--print=" + prompt)
+    return cmd
+
+
+def agy_prompt(sys_prompt: str, prompt: str) -> str:
+    return sys_prompt + "\n\n---\nThe user's request:\n" + prompt
+
+
+def _agy_tool_summary(params: Any) -> str:
+    if not isinstance(params, dict):
+        return ""
+    for key in ("CommandLine", "AbsolutePath", "TargetFile", "Url", "Query", "SearchPath", "DirectoryPath"):
+        if params.get(key):
+            return str(params[key])[:300]
+    for value in params.values():
+        if isinstance(value, str) and value:
+            return value[:300]
+    return ""
+
+
+def _translate_agy(event: dict, seen: set) -> list[dict]:
+    """Map one `agy --output-format stream-json` event onto the same UI events.
+    `seen` holds the tool steps already announced during this run."""
+    kind = event.get("event")
+    out: list[dict] = []
+    if kind == "init":
+        init = event.get("init") or {}
+        out.append({"type": "session", "session_id": event.get("conversation_id"), "model": init.get("model")})
+    elif kind == "step_update":
+        step = event.get("step_update") or {}
+        stype = step.get("step_type")
+        state = str(step.get("state") or "")
+        step_id = str(step.get("step_index"))
+        if stype == "agent_response" and step.get("text_delta"):
+            out.append({"type": "delta", "text": step["text_delta"]})
+        elif stype == "tool":
+            info = step.get("tool_info") or {}
+            if step_id not in seen:
+                seen.add(step_id)
+                out.append({"type": "tool", "id": step_id, "name": step.get("tool_name") or info.get("name") or "tool",
+                            "summary": _agy_tool_summary(info.get("parameters"))})
+            if state not in ("ACTIVE", "PENDING", "RUNNING"):
+                failed = state != "DONE" or bool(info.get("error"))
+                out.append({"type": "tool_result", "id": step_id, "error": failed})
+    elif kind == "result":
+        res = event.get("result") or {}
+        ok = res.get("status") == "SUCCESS"
+        secs = res.get("duration_seconds")
+        out.append({
+            "type": "done" if ok else "error",
+            "message": None if ok else (res.get("error") or res.get("response") or f"Antigravity stopped ({res.get('status')})"),
+            "session_id": res.get("conversation_id"),
+            "duration_ms": int(secs * 1000) if isinstance(secs, (int, float)) else None,
+            "turns": res.get("num_turns"),
+        })
+    return out
+
+
 def _sse(payload: dict) -> str:
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
@@ -209,18 +293,52 @@ async def _kill(proc: asyncio.subprocess.Process) -> None:
                 p.kill()
 
 
+async def _cli_version(cli: str) -> str | None:
+    with contextlib.suppress(Exception):
+        res = await asyncio.to_thread(
+            subprocess.run, [cli, "--version"], capture_output=True, text=True, timeout=15, env=_child_env()
+        )
+        return (res.stdout or "").strip().splitlines()[0] or None
+    return None
+
+
 @router.get("/api/ai/status")
 async def ai_status() -> dict:
-    global _version
+    global _version, _agy_version
     cli = find_cli()
     if cli and _version is None:
-        with contextlib.suppress(Exception):
-            res = await asyncio.to_thread(
-                subprocess.run, [cli, "--version"], capture_output=True, text=True, timeout=15, env=_child_env()
-            )
-            _version = (res.stdout or "").strip() or None
+        _version = await _cli_version(cli)
+    agy = find_agy()
+    if agy and _agy_version is None:
+        _agy_version = await _cli_version(agy)
     return {"available": bool(cli), "cli": cli, "version": _version,
-            "busy": _proc is not None and _proc.returncode is None}
+            "busy": _proc is not None and _proc.returncode is None,
+            "antigravity": {"available": bool(agy), "cli": agy, "version": _agy_version}}
+
+
+@router.get("/api/ai/models")
+async def ai_models(agent: str = "antigravity") -> dict:
+    """The models the user's Antigravity account can use (`agy models`), cached."""
+    global _agy_models
+    if agent != "antigravity":
+        raise HTTPException(status_code=400, detail="only agent=antigravity lists models")
+    agy = find_agy()
+    if not agy:
+        raise HTTPException(status_code=503, detail="`agy` not found — install Google Antigravity and sign in")
+    if not _agy_models:
+        try:
+            res = await asyncio.to_thread(
+                subprocess.run, [agy, "models"], capture_output=True, text=True, timeout=45, env=_child_env()
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"couldn't list Antigravity models: {exc}") from exc
+        models = []
+        for line in (res.stdout or "").splitlines():
+            model_id, _, label = line.partition("\t")
+            if label and model_id.strip() and " " not in model_id.strip():
+                models.append({"id": model_id.strip(), "label": label.strip()})
+        _agy_models = models or None
+    return {"models": _agy_models or []}
 
 
 @router.post("/api/ai/stop")
@@ -247,19 +365,25 @@ async def ai_ask(request: Request) -> StreamingResponse:
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
     mode = "ask" if body.get("mode") == "ask" else "act"
+    agent = "antigravity" if body.get("agent") == "antigravity" else "claude"
     model = str(body.get("model") or "").strip() or None
     session_id = str(body.get("session_id") or "").strip() or None
 
-    cli = find_cli()
+    cli = find_agy() if agent == "antigravity" else find_cli()
     if not cli:
+        if agent == "antigravity":
+            raise HTTPException(status_code=503, detail="`agy` not found — install Google Antigravity and sign in once")
         raise HTTPException(status_code=503, detail="`claude` CLI not found — install Claude Code and run `claude` once to log in")
     if _proc is not None and _proc.returncode is None:
         raise HTTPException(status_code=409, detail="the assistant is already working on something")
 
     base_url = f"http://127.0.0.1:{request.url.port or 7777}"
     states = get_states() if get_states else []
-    cmd = build_command(cli, model=model, session_id=session_id, mode=mode,
-                        sys_prompt=system_prompt(base_url, states, mode))
+    sys_prompt = system_prompt(base_url, states, mode)
+    if agent == "antigravity":
+        cmd = build_agy_command(cli, model=model, session_id=session_id, mode=mode, prompt=agy_prompt(sys_prompt, prompt))
+    else:
+        cmd = build_command(cli, model=model, session_id=session_id, mode=mode, sys_prompt=sys_prompt)
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -274,8 +398,9 @@ async def ai_ask(request: Request) -> StreamingResponse:
     _proc = proc
     _stop_requested = False
     assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
-    proc.stdin.write(prompt.encode("utf-8"))
-    await proc.stdin.drain()
+    if agent == "claude":  # agy takes the prompt on the command line
+        proc.stdin.write(prompt.encode("utf-8"))
+        await proc.stdin.drain()
     proc.stdin.close()
     # Drain stderr concurrently so a chatty CLI can't block on a full pipe.
     stderr_task = asyncio.create_task(proc.stderr.read())
@@ -283,6 +408,7 @@ async def ai_ask(request: Request) -> StreamingResponse:
     async def stream():
         global _proc
         finished = False
+        seen: set = set()
         try:
             while True:
                 line = await proc.stdout.readline()
@@ -292,7 +418,8 @@ async def ai_ask(request: Request) -> StreamingResponse:
                     event = json.loads(line)
                 except ValueError:
                     continue
-                for item in _translate(event):
+                items = _translate_agy(event, seen) if agent == "antigravity" else _translate(event)
+                for item in items:
                     finished = finished or item["type"] in ("done", "error")
                     yield _sse(item)
             await proc.wait()

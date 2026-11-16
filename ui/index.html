@@ -118,7 +118,16 @@
               <option value="mem">Memory use</option>
             </select>
         </label>
-        <button type="button" id="btn-group" class="btn small toggle" aria-pressed="false" title="Group apps by category">Group</button>
+        <label class="select pill-select" title="Group apps into sections">
+          <span class="select-label">Group</span>
+            <select id="group-select" aria-label="Group apps by">
+              <option value="none">None</option>
+              <option value="category">Category</option>
+              <option value="status">Status</option>
+              <option value="type">Type</option>
+              <option value="folder">Folder</option>
+            </select>
+        </label>
         <div class="seg seg-icons" id="view-seg" role="group" aria-label="Layout">
           <button type="button" data-view="grid" title="Grid" aria-label="Grid layout"></button>
           <button type="button" data-view="list" title="List" aria-label="List layout"></button>
@@ -157,6 +166,7 @@
         <span class="select-label">AI</span>
         <select id="ai-provider" aria-label="Assistant">
           <option value="claude">Claude Code</option>
+          <option value="antigravity">Antigravity (Gemini)</option>
           <option value="local">Local model</option>
         </select>
       </label>
@@ -173,6 +183,12 @@
           <option value="haiku">Haiku</option>
           <option value="">Account default</option>
           <option value="__custom">Custom&hellip;</option>
+        </select>
+      </label>
+      <label class="select" id="ai-agy-wrap" title="Antigravity model" hidden>
+        <span class="select-label">Model</span>
+        <select id="ai-agy-model" aria-label="Antigravity model">
+          <option value="">Account default</option>
         </select>
       </label>
       <input type="text" id="ai-model-custom" class="input small mono" placeholder="claude-opus-5-5" hidden spellcheck="false" />

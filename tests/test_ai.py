@@ -53,3 +53,51 @@ def test_ask_validation(client, monkeypatch):
     assert client.post("/api/ai/ask", json={"prompt": "hi"}).status_code == 503
     assert client.get("/api/ai/status").json()["available"] is False
     assert client.post("/api/ai/stop").json() == {"stopped": False}
+
+
+def test_antigravity_command_modes():
+    act = ai_routes.build_agy_command("agy", model="gemini-3.8-flash-high", session_id="c1", mode="act", prompt="-fix it")
+    assert act[0] == "agy" and act[-1] == "--print=-fix it"
+    assert ["--model", "gemini-3.8-flash-high"] == act[act.index("--model"):act.index("--model") + 2]
+    assert ["--conversation", "c1"] == act[act.index("--conversation"):act.index("--conversation") + 2]
+    assert "--dangerously-skip-permissions" in act
+
+    ask = ai_routes.build_agy_command("agy", model=None, session_id=None, mode="ask", prompt="why?")
+    assert "--dangerously-skip-permissions" not in ask and "--model" not in ask and "--conversation" not in ask
+    assert ["--mode", "plan"] == ask[ask.index("--mode"):ask.index("--mode") + 2]
+
+
+def test_translate_antigravity_events():
+    seen: set = set()
+    init = {"event": "init", "conversation_id": "c1", "init": {"model": "gemini-3.8-flash-low"}}
+    assert ai_routes._translate_agy(init, seen) == [{"type": "session", "session_id": "c1", "model": "gemini-3.8-flash-low"}]
+
+    def step(**kw):
+        return {"event": "step_update", "step_update": {"conversation_id": "c1", **kw}}
+
+    tool = {"name": "run_command", "parameters": {"CommandLine": "echo hi"}}
+    assert ai_routes._translate_agy(step(step_index=2, state="ACTIVE", step_type="tool", tool_name="run_command", tool_info=tool), seen) == [
+        {"type": "tool", "id": "2", "name": "run_command", "summary": "echo hi"},
+    ]
+    # The finished step only reports its result: the row is already shown.
+    assert ai_routes._translate_agy(step(step_index=2, state="DONE", step_type="tool", tool_name="run_command", tool_info=tool), seen) == [
+        {"type": "tool_result", "id": "2", "error": False},
+    ]
+    assert ai_routes._translate_agy(step(step_index=3, state="ACTIVE", step_type="agent_response", text_delta="pong"), seen) == [
+        {"type": "delta", "text": "pong"},
+    ]
+    assert ai_routes._translate_agy(step(step_index=0, state="DONE", step_type="user_input"), seen) == []
+
+    done = ai_routes._translate_agy({"event": "result", "result": {"conversation_id": "c1", "status": "SUCCESS",
+                                                                     "duration_seconds": 1.5, "num_turns": 1}}, seen)
+    assert done == [{"type": "done", "message": None, "session_id": "c1", "duration_ms": 1500, "turns": 1}]
+    failed = ai_routes._translate_agy({"event": "result", "result": {"status": "ERROR", "error": "quota"}}, seen)
+    assert failed[0]["type"] == "error" and failed[0]["message"] == "quota"
+
+
+def test_antigravity_ask_validation(client, monkeypatch):
+    monkeypatch.setattr(ai_routes, "find_agy", lambda: None)
+    assert client.post("/api/ai/ask", json={"prompt": "hi", "agent": "antigravity"}).status_code == 503
+    assert client.get("/api/ai/status").json()["antigravity"]["available"] is False
+    assert client.get("/api/ai/models").status_code == 503
+    assert client.patch("/api/settings", json={"ai_provider": "antigravity"}).json()["ai_provider"] == "antigravity"

@@ -665,8 +665,9 @@ a { color: inherit; }
 
 .apps.grid-view {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
+  /* never narrower than 370px, so names, links and buttons stay readable */
+  grid-template-columns: repeat(auto-fill, minmax(min(370px, 100%), 1fr));
+  gap: 14px;
 }
 .apps.list-view {
   display: flex;
@@ -1863,6 +1864,15 @@ body.side-hidden .sidebar { display: none; }
 .card-link:hover { color: var(--text); }
 .card-link:hover span { text-decoration: underline; text-underline-offset: 3px; }
 .card-link[hidden], .list-view .card-link { display: none; }
+/* grid card: head · description · footer (address or type · port, then buttons) */
+.apps:not(.list-view) .card { gap: 14px; padding: 18px 18px 14px 20px; }
+.apps:not(.list-view) .card-summary:not(:has(.card-desc:not(.is-path))) { display: none; }
+.apps:not(.list-view) .card-desc { -webkit-line-clamp: 2; color: var(--text-2); }
+.apps:not(.list-view) .card-bottom { align-items: center; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+.apps:not(.list-view) .card-bottom .card-link { align-self: center; flex: 1; min-width: 0; }
+.card-foot-meta { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-view .card-foot-meta { display: none; }
+.apps:not(.list-view) .card-actions { margin-left: auto; }
 /* stats and the folder path live in the status tooltip and the list view */
 .apps:not(.list-view) .card .stats { display: none; }
 .apps:not(.list-view) .card .card-desc.is-path { display: none; }
@@ -1969,3 +1979,8 @@ body.side-hidden .sidebar { display: none; }
 .compose-body .hint { margin: 0; }
 .compose-body textarea { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; resize: vertical; min-height: 180px; }
 #prs-github { text-decoration: none; margin-right: auto; }
+
+/* Group headings: label · count · start/stop, then a hairline across the row */
+.apps.grid-view .group-head { padding-top: 26px; }
+.apps.grid-view .group-head:first-child { padding-top: 2px; }
+.apps.grid-view .group-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }

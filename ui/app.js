@@ -71,7 +71,7 @@
     categoryFilter: $("category-filter"),
     catNav: $("cat-nav"),
     sortSelect: $("sort-select"),
-    btnGroup: $("btn-group"),
+    groupSelect: $("group-select"),
     viewBtns: document.querySelectorAll("#view-seg button"),
 
     drawer: $("drawer"),
@@ -161,6 +161,7 @@
     }
   }
 
+  const GROUPS = ["none", "category", "status", "type", "folder"];
   const SORTS = ["manual", "name-asc", "name-desc", "path", "created-desc", "created-asc", "updated-desc", "status", "port", "mem"];
 
   const state = {
@@ -169,7 +170,7 @@
     groupHeads: new Map(),
     viewMode: loadPref("view", "grid") === "list" ? "list" : "grid",
     sortMode: SORTS.includes(loadPref("sort", "manual")) ? loadPref("sort", "manual") : "manual",
-    groupBy: loadPref("group", "1") === "1",
+    groupBy: GROUPS.includes(loadPref("group_by", "none")) ? loadPref("group_by", "none") : "none",
     categoryFilter: loadPref("category", ""),
     activeFilter: "all",
     searchQuery: "",
@@ -822,19 +823,22 @@
     actions.appendChild(startBtn);
     actions.appendChild(openBtn);
 
-    // Bottom: summary (description, live stats) + action buttons
+    // Summary (description, live stats) on its own row, then a footer:
+    // the address (or type · port when stopped) on the left, buttons on the right.
     const summary = el("div", "card-summary");
     summary.appendChild(stats);
     summary.appendChild(desc);
+    const footMeta = el("span", "card-foot-meta");
     const bottom = el("div", "card-bottom");
-    bottom.appendChild(summary);
+    bottom.appendChild(cardLink);
+    bottom.appendChild(footMeta);
     bottom.appendChild(actions);
 
     card.appendChild(head);
-    card.appendChild(cardLink);
     card.appendChild(wpBar);
     card.appendChild(shareBar);
     card.appendChild(alert);
+    card.appendChild(summary);
     card.appendChild(bottom);
 
     // Events
@@ -980,7 +984,7 @@
       logo, logoKey: null, stats,
       shareBar, shareText, shareLink, shareBtn, shareMeta, gitChip, whyBtn, miPhone, miPull, miConnUrl, miConnEnv,
       miGitHub, miPRs, miSharePR, miRemovePreview, prChip,
-      shareFb, shareFbState, fbChip, fbCount, miFeedback, cardLink, cardLinkText, upChip, openBtn, startBtn, shareMain,
+      shareFb, shareFbState, fbChip, fbCount, miFeedback, cardLink, cardLinkText, footMeta, upChip, openBtn, startBtn, shareMain,
       wpBar, miWp,
       name, path, desc, status, statusText,
       portLink, portNone, health, tech, category,
@@ -1047,6 +1051,10 @@
     v.tech.textContent = tech || "";
     v.tech.hidden = !tech;
     v.portNone.hidden = v.portNone.hidden || !v.tech.hidden;
+    // Footer: the live address when running, otherwise what it is and where it listens.
+    const meta = [tech, port !== null ? ":" + port : null].filter(Boolean).join(" · ");
+    v.footMeta.textContent = meta;
+    v.footMeta.hidden = !v.cardLink.hidden || !meta;
 
     const cat = appCategory(app);
     v.category.textContent = cat;
@@ -1566,7 +1574,7 @@
 
     const visibleIds = Array.from(els.grid.querySelectorAll(".card")).map((c) => c.dataset.id);
     let categoryPatch = null;
-    if (state.groupBy) {
+    if (state.groupBy === "category") {
       let prev = card.previousElementSibling;
       while (prev && !prev.classList.contains("group-head")) prev = prev.previousElementSibling;
       const app = findApp(d.id);
@@ -1627,11 +1635,14 @@
     render();
   });
 
-  els.btnGroup.addEventListener("click", () => {
-    state.groupBy = !state.groupBy;
-    savePref("group", state.groupBy ? "1" : "0");
+  function setGroupBy(mode) {
+    state.groupBy = GROUPS.includes(mode) ? mode : "none";
+    savePref("group_by", state.groupBy);
     render();
-  });
+  }
+
+  els.groupSelect.value = state.groupBy;
+  els.groupSelect.addEventListener("change", () => setGroupBy(els.groupSelect.value));
 
   icon(els.viewBtns[0], "grid");
   icon(els.viewBtns[1], "list");
@@ -1703,48 +1714,91 @@
     return cmp ? list.sort(cmp) : list;
   }
 
+  const STATUS_GROUPS = ["Running", "Crashed", "Stopped"];
+  const OTHER = "\u0000other";
+
+  /** Which group an app belongs to under the current "Group by" mode. */
+  function groupKey(app) {
+    switch (state.groupBy) {
+      case "category": return appCategory(app) || UNCATEGORIZED;
+      case "status": return isActive(app) ? "Running" : app.status === "crashed" ? "Crashed" : "Stopped";
+      case "type": return techLabel(app) || OTHER;
+      case "folder": {
+        const parent = String(app.path || "").replace(/[\\/]+$/, "").replace(/[\\/][^\\/]*$/, "");
+        return parent ? shortPath(parent) : OTHER;
+      }
+      default: return "";
+    }
+  }
+
+  function groupLabel(key) {
+    if (key === UNCATEGORIZED) return state.apps.some((a) => appCategory(a)) ? "Other" : "No category";
+    if (key === OTHER) return "Other";
+    return key;
+  }
+
   /** The ordered list of nodes to show: group headers and cards. */
   function currentSequence() {
     const apps = sortedVisible();
-    if (!state.groupBy) return apps.map((a) => ({ kind: "card", id: a.id, app: a }));
+    if (state.groupBy === "none") return apps.map((a) => ({ kind: "card", id: a.id, app: a }));
 
     const groups = new Map();
     for (const app of apps) {
-      const key = appCategory(app) || UNCATEGORIZED;
+      const key = groupKey(app);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(app);
     }
     const keys = Array.from(groups.keys()).sort((a, b) => {
-      if (a === UNCATEGORIZED) return 1;
-      if (b === UNCATEGORIZED) return -1;
+      if (state.groupBy === "status") return STATUS_GROUPS.indexOf(a) - STATUS_GROUPS.indexOf(b);
+      if (a === UNCATEGORIZED || a === OTHER) return 1;
+      if (b === UNCATEGORIZED || b === OTHER) return -1;
       return collator.compare(a, b);
     });
     const seq = [];
     for (const key of keys) {
-      seq.push({ kind: "head", key: key, count: groups.get(key).length });
+      seq.push({ kind: "head", key: key, apps: groups.get(key) });
       for (const app of groups.get(key)) seq.push({ kind: "card", id: app.id, app: app });
     }
     return seq;
   }
 
-  function groupHead(key, count) {
-    let h = state.groupHeads.get(key);
+  // Start / stop every app in a group. Categories go through the server so they
+  // start in your order, each after the previous is up; other groups start together.
+  async function groupRun(head, verb) {
+    const apps = head._apps || [];
+    if (state.groupBy === "category") return groupAction(head.dataset.category === UNCATEGORIZED ? "" : head.dataset.category, verb);
+    const todo = apps.filter((a) => (verb === "start" ? !isActive(a) && a.command : isActive(a)));
+    if (!todo.length) return;
+    const done = await Promise.all(todo.map((a) => request("/api/apps/" + encodeURIComponent(a.id) + "/" + verb, { method: "POST" })
+      .then((updated) => {
+        if (verb === "start") watchToOpen(updated);
+        replaceAppState(updated);
+        return true;
+      })
+      .catch(() => false)));
+    const ok = done.filter(Boolean).length;
+    const what = (verb === "start" ? "Started " : "Stopped ") + ok + (ok === 1 ? " app" : " apps");
+    toast(ok === todo.length ? what : what + ", " + (todo.length - ok) + " failed", ok === todo.length ? "ok" : "warn");
+  }
+
+  function groupHead(key, apps) {
+    const cacheKey = state.groupBy + "\n" + key;
+    let h = state.groupHeads.get(cacheKey);
     if (!h) {
       h = el("div", "group-head");
       h.dataset.category = key;
       h.appendChild(el("span", "group-name"));
       h.appendChild(el("span", "count"));
       const tools = el("span", "group-tools");
-      const cat = key === UNCATEGORIZED ? "" : key;
-      const play = icon(button("group-btn", null, "Start this group in order"), "play");
-      play.title = "Start all — one after another, in your order";
-      play.addEventListener("click", () => groupAction(cat, "start"));
-      const stop = icon(button("group-btn", null, "Stop this group"), "stop");
+      const play = icon(button("group-btn group-play", null, "Start this group"), "play");
+      play.addEventListener("click", () => groupRun(h, "start"));
+      const stop = icon(button("group-btn group-stop", null, "Stop this group"), "stop");
       stop.title = "Stop all in this group";
-      stop.addEventListener("click", () => groupAction(cat, "stop"));
+      stop.addEventListener("click", () => groupRun(h, "stop"));
       tools.appendChild(play);
       tools.appendChild(stop);
-      if (cat && cat !== "Services") {
+      const cat = key === UNCATEGORIZED ? "" : key;
+      if (state.groupBy === "category" && cat && cat !== "Services") {
         const save = button("group-btn", null, "Save as homeport.json");
         save.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>';
         save.title = "Save this group as homeport.json — teammates get the same setup in one click";
@@ -1752,11 +1806,17 @@
         tools.appendChild(save);
       }
       h.appendChild(tools);
-      state.groupHeads.set(key, h);
+      state.groupHeads.set(cacheKey, h);
     }
-    const anyCategory = state.apps.some((a) => appCategory(a));
-    h.firstChild.textContent = key === UNCATEGORIZED ? (anyCategory ? "Other" : "All apps") : key;
-    h.children[1].textContent = String(count);
+    h._apps = apps;
+    h.firstChild.textContent = groupLabel(key);
+    h.firstChild.title = state.groupBy === "folder" && key !== OTHER ? key : "";
+    h.children[1].textContent = String(apps.length);
+    const play = h.querySelector(".group-play");
+    const stop = h.querySelector(".group-stop");
+    play.hidden = !apps.some((a) => !isActive(a) && a.command);
+    stop.hidden = !apps.some(isActive);
+    play.title = state.groupBy === "category" ? "Start all — one after another, in your order" : "Start all in this group";
     return h;
   }
 
@@ -1883,7 +1943,7 @@
     renderCategoryControls();
 
     els.sortSelect.value = state.sortMode;
-    els.btnGroup.setAttribute("aria-pressed", String(state.groupBy));
+    els.groupSelect.value = state.groupBy;
     els.viewBtns.forEach((b) => b.classList.toggle("active", b.dataset.view === state.viewMode));
     els.grid.className = "apps " + state.viewMode + "-view" + (state.sortMode === "manual" ? " can-drag" : "");
 
@@ -1919,7 +1979,7 @@
     if (state.drag) return;
 
     const seq = currentSequence();
-    const nodes = seq.map((n) => (n.kind === "head" ? groupHead(n.key, n.count) : state.views.get(n.id).el));
+    const nodes = seq.map((n) => (n.kind === "head" ? groupHead(n.key, n.apps) : state.views.get(n.id).el));
     const keep = new Set(nodes);
     Array.from(els.grid.children).forEach((child) => {
       if (!keep.has(child)) child.remove();
@@ -3621,7 +3681,9 @@
     act(state.viewMode === "grid" ? "Switch to list view" : "Switch to grid view",
       state.viewMode === "grid" ? "list" : "grid",
       () => els.viewBtns[state.viewMode === "grid" ? 1 : 0].click(), "layout");
-    act(state.groupBy ? "Stop grouping by category" : "Group by category", "layers", () => els.btnGroup.click(), "workspaces");
+    for (const [mode, label] of [["none", "Don't group apps"], ["category", "Group by category"], ["status", "Group by status"], ["type", "Group by type"], ["folder", "Group by folder"]]) {
+      if (mode !== state.groupBy) act(label, "layers", () => setGroupBy(mode), "group workspaces sections");
+    }
     if (!$("ai-fab").hidden) act("Ask AI", "chat", () => openAi(), "assistant claude help");
     if (canQuit) act("Quit Homeport", "stop", () => quitHomeport(), "exit close shutdown");
     return cmds;
@@ -3830,6 +3892,8 @@
     modelCustom: $("ai-model-custom"),
     modelWrap: $("ai-model-wrap"),
     providerSel: $("ai-provider"),
+    agySel: $("ai-agy-model"),
+    agyWrap: $("ai-agy-wrap"),
     localSel: $("ai-local-model"),
     localWrap: $("ai-local-wrap"),
     modelsBtn: $("ai-models-btn"),
@@ -3839,6 +3903,8 @@
     reload: $("ai-reload"),
     provider: "claude",
     claudeAvailable: false,
+    agyAvailable: false,
+    agyModels: null,
     localStatus: null,
     sessionId: null,
     appId: null,
@@ -3879,8 +3945,12 @@
     }
   }
 
+  const AI_PROVIDERS = ["claude", "antigravity", "local"];
+  const AI_PROVIDER_LABEL = { claude: "Claude", antigravity: "Antigravity · Gemini", local: "Local model · offline" };
+
   function aiModel() {
     if (ai.provider === "local") return ai.localSel.value;
+    if (ai.provider === "antigravity") return ai.agySel.value;
     return ai.model.value === "__custom" ? ai.modelCustom.value.trim() : ai.model.value;
   }
 
@@ -4002,7 +4072,7 @@
       row.appendChild(el("span", null, evt.summary || ""));
       row.title = evt.summary || "";
       if (evt.id) ai.tools[evt.id] = row;
-      if (/^(Edit|Write|MultiEdit)$/.test(evt.name) && /\/ui\//.test(evt.summary || "")) ai.reload.hidden = false;
+      if (/^(Edit|Write|MultiEdit|write_to_file|replace_file_content|multi_replace_file_content|sed_file)$/.test(evt.name) && /\/ui\//.test(evt.summary || "")) ai.reload.hidden = false;
       aiAppend(row);
     } else if (evt.type === "tool_result") {
       const row = ai.tools[evt.id];
@@ -4073,6 +4143,7 @@
     const local = ai.provider === "local";
     const body = { prompt, model: aiModel(), session_id: ai.sessionId, mode: ai.mode };
     if (local && ai.appId) body.app_id = ai.appId;
+    if (ai.provider === "antigravity") body.agent = "antigravity";
     ai.appId = null;
     try {
       const res = await fetch(apiUrl(local ? "/api/local-ai/ask" : "/api/ai/ask"), {
@@ -4908,8 +4979,9 @@
     const st = settings.st;
     const claude = settings.claude;
     const g = setGroup(null);
-    g.group.appendChild(setRow("Assistant", ai.provider === "local" ? "Free and offline, on this computer" : "Most capable, uses your Claude account",
-      [setSeg([["claude", "Claude Code"], ["local", "Local model"]], ai.provider, (v) => {
+    const blurb = { claude: "Most capable, uses your Claude account", antigravity: "Gemini models, uses your Google Antigravity account", local: "Free and offline, on this computer" };
+    g.group.appendChild(setRow("Assistant", blurb[ai.provider],
+      [setSeg([["claude", "Claude Code"], ["antigravity", "Antigravity"], ["local", "Local model"]], ai.provider, (v) => {
         if (ai.running) return toast("Wait for the assistant to finish first", "warn");
         aiSetProvider(v);
         renderSettings();
@@ -4923,6 +4995,13 @@
         ai.model.value = v;
         ai.model.dispatchEvent(new Event("change"));
       })]));
+    } else if (ai.provider === "antigravity") {
+      const opts = Array.from(ai.agySel.options).map((o) => [o.value, o.textContent]);
+      g.group.appendChild(setRow("Antigravity model", null, [setSelect(opts, ai.agySel.value, (v) => {
+        ai.agySel.value = v;
+        ai.agySel.dispatchEvent(new Event("change"));
+      })]));
+      if (ai.agyAvailable) aiLoadAgyModels();
     } else if (st && st.models && st.models.length) {
       g.group.appendChild(setRow("Local model", null, [setSelect(st.models.map((m) => [m.name, m.name]), ai.localSel.value, (v) => {
         ai.localSel.value = v;
@@ -4934,6 +5013,9 @@
     const s = setGroup("Status");
     s.group.appendChild(setRow("Claude Code", claude && claude.version ? claude.version : "The claude command on this computer",
       [setValue(claude ? (claude.available ? "Installed" : "Not installed") : "Checking…", claude ? (claude.available ? "ok" : "") : "")]));
+    const agy = claude && claude.antigravity;
+    s.group.appendChild(setRow("Antigravity", agy && agy.version ? agy.version : "The agy command, installed with Google Antigravity",
+      [setValue(agy ? (agy.available ? "Installed" : "Not installed") : "Checking…", agy && agy.available ? "ok" : "")]));
     const ready = aiLocalReady(st);
     let text = "Checking…";
     if (st) text = ready ? "Ready · " + (ai.localSel.value || st.models[0].name) : st.running ? "No model yet" : st.installed ? "Ollama isn't running" : "Ollama isn't installed";
@@ -5404,19 +5486,40 @@
   /* ---------- provider switching and status ---------- */
 
   function aiApplyProvider() {
-    const local = ai.provider === "local";
-    ai.providerSel.value = ai.provider;
-    ai.modelWrap.hidden = local;
-    ai.modelCustom.hidden = local || ai.model.value !== "__custom";
-    ai.localWrap.hidden = !local;
-    ai.modelsBtn.hidden = !local;
+    const p = ai.provider;
+    ai.providerSel.value = p;
+    ai.modelWrap.hidden = p !== "claude";
+    ai.modelCustom.hidden = p !== "claude" || ai.model.value !== "__custom";
+    ai.agyWrap.hidden = p !== "antigravity";
+    ai.localWrap.hidden = p !== "local";
+    ai.modelsBtn.hidden = p !== "local";
     const dot = ai.sub.querySelector(".ai-online");
-    ai.sub.textContent = local ? "Local model · offline · runs only when you send" : "Claude · runs only when you send";
+    ai.sub.textContent = AI_PROVIDER_LABEL[p] + " · runs only when you send";
     if (dot) ai.sub.prepend(dot);
   }
 
+  // The models this Antigravity account can use, asked once per page.
+  async function aiLoadAgyModels() {
+    if (ai.agyModels) return;
+    try {
+      const data = await request("/api/ai/models?agent=antigravity");
+      ai.agyModels = data.models || [];
+    } catch (err) {
+      return;
+    }
+    const want = aiPref("agy_model", "");
+    ai.agySel.textContent = "";
+    [{ id: "", label: "Account default" }].concat(ai.agyModels).forEach((m) => {
+      const opt = el("option", null, m.label);
+      opt.value = m.id;
+      ai.agySel.appendChild(opt);
+    });
+    ai.agySel.value = ai.agyModels.some((m) => m.id === want) ? want : "";
+    if (settings.open) renderSettings();
+  }
+
   function aiSetProvider(provider) {
-    ai.provider = provider === "local" ? "local" : "claude";
+    ai.provider = AI_PROVIDERS.includes(provider) ? provider : "claude";
     aiSavePref("provider", ai.provider);
     saveSetting({ ai_provider: ai.provider });
     ai.sessionId = null;
@@ -5428,6 +5531,24 @@
 
   // Check the selected assistant and show the chat, or its setup screen.
   async function aiRefresh(showSetup) {
+    if (ai.provider === "antigravity") {
+      try {
+        const st = await request("/api/ai/status");
+        ai.claudeAvailable = !!st.available;
+        const agy = st.antigravity || {};
+        ai.agyAvailable = !!agy.available;
+        ai.send.disabled = !agy.available;
+        if (!agy.available) ai.meta.textContent = "agy not found — install Google Antigravity and sign in, or pick another AI";
+        else {
+          if (!ai.meta.textContent && agy.version) ai.meta.textContent = "Antigravity " + agy.version;
+          aiLoadAgyModels();
+        }
+      } catch (err) {
+        ai.meta.textContent = err.message;
+      }
+      if (ai.log.querySelector(".ai-setup")) aiRenderEmpty();
+      return;
+    }
     if (ai.provider === "claude") {
       try {
         const st = await request("/api/ai/status");
@@ -5482,7 +5603,7 @@
   ai.model.value = aiPref("model", "sonnet");
   if (ai.model.selectedIndex < 0) ai.model.value = "sonnet";
   ai.modelCustom.value = aiPref("model_custom", "");
-  ai.provider = aiPref("provider", "claude") === "local" ? "local" : "claude"; // until the server answers
+  ai.provider = AI_PROVIDERS.includes(aiPref("provider", "claude")) ? aiPref("provider", "claude") : "claude"; // until the server answers
   aiApplyProvider();
   aiSetMode(aiPref("mode", "act"));
   aiRenderEmpty();
@@ -5493,6 +5614,10 @@
       return;
     }
     aiSetProvider(ai.providerSel.value);
+  });
+  ai.agySel.addEventListener("change", () => {
+    ai.sessionId = null;
+    aiSavePref("agy_model", ai.agySel.value);
   });
   ai.localSel.addEventListener("change", () => {
     ai.sessionId = null;
@@ -5577,7 +5702,8 @@
     .then(([prefs, st]) => {
       settings.prefs = prefs;
       ai.claudeAvailable = !!(st && st.available);
-      const chosen = prefs.ai_provider || (ai.claudeAvailable ? "claude" : "local");
+      ai.agyAvailable = !!(st && st.antigravity && st.antigravity.available);
+      const chosen = prefs.ai_provider || (ai.claudeAvailable ? "claude" : ai.agyAvailable ? "antigravity" : "local");
       if (chosen !== ai.provider) {
         ai.provider = chosen;
         aiApplyProvider();
