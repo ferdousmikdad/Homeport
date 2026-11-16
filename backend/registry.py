@@ -54,6 +54,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "auto_restart": False,
     "autostart": False,
     "notify": True,
+    "https": None,
     "env": {},
 }
 
@@ -70,6 +71,7 @@ _WRITABLE = (
     "auto_restart",
     "autostart",
     "notify",
+    "https",
     "env",
     "service",
     "wordpress",
@@ -176,6 +178,8 @@ def _normalize(cfg: dict, *, app_id: str) -> dict:
         "auto_restart": bool(cfg.get("auto_restart", False)),
         "autostart": bool(cfg.get("autostart", False)),
         "notify": bool(cfg.get("notify", True)),
+        # open over HTTPS: True / False, or None = the Settings default
+        "https": cfg.get("https") if isinstance(cfg.get("https"), bool) else None,
         "env": _coerce_env(cfg.get("env")),
         "service": cfg.get("service") if isinstance(cfg.get("service"), dict) else None,
         "wordpress": cfg.get("wordpress") if isinstance(cfg.get("wordpress"), dict) else None,

@@ -158,7 +158,8 @@ async def open_app_target(app_id: str, request: Request) -> dict:
         if not isinstance(page, str) or not page.startswith("/") or page.startswith("//") \
                 or "\\" in page or any(c in page for c in "\r\n\t ") or len(page) > 2000:
             raise HTTPException(status_code=400, detail="path must be a page of the app, like /about")
-        url = f"http://{app_id}.localhost:{port}{page}"
+        from . import app_settings, local_https
+        url = local_https.app_url(app_id, cfg, app_settings.load().get("https_default"), port, page)
         try:
             await asyncio.to_thread(osutil.open_url, url)
             return {"ok": True, "target": "app", "url": url}

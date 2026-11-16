@@ -190,6 +190,33 @@
           mk(svg, "path", { d, class: "ln" + (i % 2 ? " dim" : ""), "stroke-dasharray": i % 3 === 2 ? "3 6" : "" });
         }
       },
+      // homeport.json: a file whose lines become apps
+      doc(svg) {
+        mk(svg, "path", { d: "M 120 30 L 250 30 L 280 60 L 280 190 L 120 190 Z", class: "ln" });
+        mk(svg, "path", { d: "M 250 30 L 250 60 L 280 60", class: "ln dim" });
+        for (let i = 0; i < 6; i++) {
+          const y = 82 + i * 18;
+          line(svg, 140 + (i % 2) * 14, y, 140 + (i % 2) * 14 + 40 + ((i * 41) % 70), y, i % 3 ? "dim" : "");
+          if (i % 2 === 0) { line(svg, 280, y, 320, y, "dim"); mk(svg, "circle", { cx: 330, cy: y, r: 4, class: "dot" }); }
+        }
+      },
+      // Pull request previews: your branch and the PR running side by side
+      fork(svg) {
+        line(svg, 40, 140, 360, 140);
+        mk(svg, "path", { d: "M 120 140 C 160 140, 160 70, 200 70 L 360 70", class: "ln" });
+        [40, 120, 220, 300, 360].forEach((x) => mk(svg, "circle", { cx: x, cy: 140, r: 4, class: "dot" }));
+        [250, 360].forEach((x) => mk(svg, "circle", { cx: x, cy: 70, r: 4, class: "dot" }));
+        mk(svg, "rect", { x: 300, y: 50, width: 70, height: 40, rx: 8, class: "ln dim" });
+      },
+      // Local HTTPS: a padlock
+      lock(svg) {
+        mk(svg, "path", { d: "M 165 105 L 165 80 A 35 35 0 0 1 235 80 L 235 105", class: "ln" });
+        mk(svg, "rect", { x: 140, y: 105, width: 120, height: 90, rx: 14, class: "ln" });
+        mk(svg, "circle", { cx: 200, cy: 142, r: 9, class: "ln" });
+        line(svg, 200, 151, 200, 172);
+        for (let i = 0; i < 5; i++) line(svg, 60 + i * 8, 150, 100, 150 - i * 6 + 12, "dim");
+        for (let i = 0; i < 5; i++) line(svg, 300, 150 - i * 6 + 12, 340 - i * 8, 150, "dim");
+      },
       // CPU & memory: a live trace
       pulse(svg) {
         let d = "M 30 140";

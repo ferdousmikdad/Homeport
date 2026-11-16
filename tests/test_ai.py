@@ -101,3 +101,20 @@ def test_antigravity_ask_validation(client, monkeypatch):
     assert client.get("/api/ai/status").json()["antigravity"]["available"] is False
     assert client.get("/api/ai/models").status_code == 503
     assert client.patch("/api/settings", json={"ai_provider": "antigravity"}).json()["ai_provider"] == "antigravity"
+
+
+def test_prompt_length_limits(client, monkeypatch):
+    monkeypatch.setattr(ai_routes, "find_cli", lambda: "/bin/true")
+    too_long = "x" * (ai_routes.MAX_PROMPT + 1)
+    res = client.post("/api/ai/ask", json={"prompt": too_long})
+    assert res.status_code == 400 and "too long" in res.json()["detail"]
+
+
+def test_antigravity_prompt_drops_snapshot_when_huge():
+    many = [{"id": f"app{i}", "name": f"App {i}", "status": "stopped", "path": "/x/" + "p" * 200, "command": "npm run dev"}
+            for i in range(200)]
+    full = ai_routes.system_prompt("http://127.0.0.1:7777", many, "act")
+    short = ai_routes.system_prompt("http://127.0.0.1:7777", many, "act", snapshot=False)
+    assert len(ai_routes.agy_prompt(full, "hi")) > ai_routes.AGY_ARG_LIMIT
+    assert len(ai_routes.agy_prompt(short, "hi" * 1000)) < ai_routes.AGY_ARG_LIMIT
+    assert "GET /api/apps" in short and "app199" not in short

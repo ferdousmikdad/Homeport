@@ -192,7 +192,8 @@ class HostProxyMiddleware:
                                      "<p>Start it from the Homeport dashboard, then reload this page.</p>", 503)
                     await _send_page(send, st, body)
                 return
-            public_origin = "http://" + host
+            secure = scope.get("scheme") in ("https", "wss")
+            public_origin = ("https://" if secure else "http://") + host
 
         # feedback widget: visitors on a share with feedback on; the owner in review mode
         if scope["type"] == "http" and (scope.get("path") or "").startswith(_FB):

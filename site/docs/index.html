@@ -76,10 +76,13 @@
     <h4>Everyday use</h4>
     <a href="#palette">Command palette</a>
     <a href="#named-urls">Named URLs</a>
-    <a href="#workspaces">Workspaces</a>
+    <a href="#workspaces">Workspaces &amp; grouping</a>
+    <a href="#https">Local HTTPS</a>
     <a href="#logs">Logs &amp; restarts</a>
     <a href="#git">Git on cards</a>
     <a href="#github">GitHub</a>
+    <a href="#team-setup">Team setup (homeport.json)</a>
+    <a href="#pr-previews">Pull request previews</a>
     <a href="#settings">Settings</a>
     <h4>Sharing</h4>
     <a href="#share">Public share links</a>
@@ -165,6 +168,19 @@ cd Homeport
 
     <h2 id="workspaces">Workspaces</h2>
     <p>Give related apps the same category (API, frontend, worker…). Hover the category heading and press <strong>▶</strong>: Homeport starts them one by one in your order, each waiting until the previous one is up. <strong>■</strong> stops them in reverse. Drag cards to change the order.</p>
+    <p>The <strong>Group</strong> menu above the cards sorts them into sections by <strong>category</strong>, <strong>status</strong> (running, crashed, stopped), <strong>type</strong> (Node, Python, …) or <strong>folder</strong>. Every section heading has start-all and stop-all; categories start in your order, the others start together.</p>
+
+    <h2 id="https">Local HTTPS</h2>
+    <p>Some features only work on <code>https://</code> pages — secure cookies, service workers, OAuth redirects, camera and microphone. Homeport can serve every app at <code>https://&lt;app-id&gt;.localhost:7443</code> with no change to the app.</p>
+    <ol>
+      <li><strong>Settings → General → Local HTTPS → Set up HTTPS.</strong> Homeport makes its own certificate and asks your system to trust it once — macOS asks for your password in a Keychain prompt, Windows shows a certificate prompt. On Linux, the steps to trust it in your browser are shown.</li>
+      <li>Turn on <strong>Open apps over HTTPS by default</strong>, or choose per app in <strong>Edit → HTTPS</strong>. Links on the cards switch to <code>https://</code>.</li>
+    </ol>
+    <ul>
+      <li>The app keeps running on plain HTTP; Homeport speaks HTTPS in front of it, and links the app makes to its own <code>localhost:&lt;port&gt;</code> are rewritten. Live reload (WebSockets) keeps working.</li>
+      <li>The certificate is only valid for <code>localhost</code> names, its private key stays in Homeport's data folder (readable only by you), and it never leaves your computer.</li>
+      <li><strong>Remove local certificates</strong> in the same place stops HTTPS, asks the system to forget the certificate and deletes it.</li>
+    </ul>
 
     <h2 id="logs">Logs &amp; restarts</h2>
     <p>Each app's output is saved to <code>data/logs/</code>, so logs survive restarts. Open them from the card (☰), search, download or clear. In <strong>Edit</strong> you can turn on <em>auto-restart</em> (bring crashed apps back), <em>start with Homeport</em>, and crash notifications.</p>
@@ -184,7 +200,33 @@ cd Homeport
       <li><strong>Pull &amp; restart</strong> works for private repos too.</li>
       <li>The projects folder is in Settings → GitHub (default <code>~/Projects</code>, or <code>~/Developer</code> / <code>~/Code</code> if you have one). Homeport never clones into a folder that already has files.</li>
     </ul>
-    <div class="note">Homeport only talks to GitHub. Your login is stored on your computer (readable only by you), never shown or sent anywhere else. Homeport never pushes or deletes anything on GitHub. <strong>Disconnect</strong> removes it; you can also revoke Homeport in GitHub → Settings → Applications.</div>
+    <div class="note">Homeport only talks to GitHub. Your login is stored on your computer (readable only by you), never shown or sent anywhere else. Homeport never pushes code or deletes anything on GitHub; pull request comments and issues are only posted after you've seen (and can edit) the text. <strong>Disconnect</strong> removes it; you can also revoke Homeport in GitHub → Settings → Applications.</div>
+
+    <h2 id="team-setup">Team setup (homeport.json)</h2>
+    <p>Put a <code>homeport.json</code> in the root of a repo and anyone on your team gets the whole setup — apps, databases and start order — in one click.</p>
+    <pre><code>{
+  "name": "Shop",
+  "services": ["postgres", "redis"],
+  "apps": [
+    { "name": "API", "path": "api", "command": "php artisan serve --port {port}", "port": 8000,
+      "env": { "DB_PORT": "{postgres.port}", "REDIS_URL": "{redis.url}" }, "health": "/up" },
+    { "name": "Web", "path": "web" }
+  ]
+}</code></pre>
+    <ul>
+      <li><strong>Add app</strong>, <strong>Discover projects</strong> and <strong>Add from GitHub</strong> notice the file and offer to set the project up. A review screen shows every command it will run first — nothing is added or started until you click <strong>Set up</strong>.</li>
+      <li><code>command</code> and <code>port</code> are optional (Homeport detects them like <em>Add app</em>); <code>{port}</code> and values like <code>{postgres.port}</code> or <code>{redis.url}</code> are filled in for you. Apps you already added are skipped.</li>
+      <li>To make one: group by category and click <strong>Save as homeport.json</strong> on the heading. Homeport shows the file before writing it and never overwrites one without asking.</li>
+    </ul>
+
+    <h2 id="pr-previews">Pull request previews</h2>
+    <p>On an app added from GitHub: <strong>••</strong> → <strong>Pull requests</strong> → <strong>Preview</strong>. Homeport checks the pull request out into its own folder next to your repo (a git worktree), adds it as an app on its own port with the same command and settings, and starts it. Your own copy is never touched.</p>
+    <ul>
+      <li><strong>Share preview on pull request</strong> starts a share link with comments on and posts it on the pull request — after showing you the text.</li>
+      <li>In the Feedback window, <strong>Create issue</strong> turns a visitor's comment into a GitHub issue with the page, screen size and thread filled in.</li>
+      <li><strong>Remove preview</strong> stops it and deletes its folder.</li>
+      <li>Turn on <strong>Notify me about new comments</strong> (Settings → Sharing &amp; feedback) to get a desktop notification when a visitor comments or replies.</li>
+    </ul>
 
     <h2 id="settings">Settings</h2>
     <p>Sidebar → <strong>Settings</strong> (bottom left).</p>
@@ -279,6 +321,7 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:5433/postgres</code></pre>
     <p><strong>Ask AI</strong> (<code>⌘J</code> / <code>Ctrl J</code>, or <strong>Ask AI to fix</strong> on a crashed app) can explain problems and fix them. Choose the assistant in Settings → AI assistant:</p>
     <ul>
       <li><strong>Claude Code</strong> — the most capable, if you already use <a href="https://claude.com/claude-code">Claude Code</a>. It uses your Claude account.</li>
+      <li><strong>Antigravity</strong> — Gemini models through <a href="https://antigravity.google">Google Antigravity</a>'s <code>agy</code> command, with your own Google account. Install Antigravity, open it once and sign in; Homeport finds it and lists the models your account can use. Homeport uses no key of its own.</li>
       <li><strong>Local model</strong> — free and offline. Install <a href="https://ollama.com">Ollama</a>, then Settings → <strong>Models</strong> → download one (Qwen3 4B, about 2.5 GB, is a good start). Nothing you ask leaves your computer, and the model is unloaded from memory a few minutes after it answers.</li>
     </ul>
     <p>The local model follows short <strong>fix guides</strong> for common problems (port in use, missing packages, <code>.env</code>, database down, …) — add your own as Markdown files in <code>skills/</code>. It can read logs and files in the app's folder and run Homeport's predefined fixes; <strong>every change asks you first</strong> (<em>Allow</em> / <em>Don't allow</em>), and it has no shell access. <strong>Ask only</strong> mode just looks and explains.</p>

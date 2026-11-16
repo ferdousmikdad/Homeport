@@ -46,6 +46,12 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch, request):
     async def _no_loop():
         return None
     monkeypatch.setattr(updates, "background_loop", _no_loop)
+    # local HTTPS: a throw-away certificate folder, never the real one
+    from backend import local_https
+    https_dir = str(tmp_path_factory.mktemp("https"))
+    monkeypatch.setattr(local_https, "_dir", lambda: https_dir)
+    monkeypatch.setattr(local_https, "_trusted", None)
+    monkeypatch.setattr(local_https, "_leaf", {})
     # never show real desktop notifications from tests
     from backend import osutil
     if request.node.name != "test_notify_never_raises":  # that one checks the real function

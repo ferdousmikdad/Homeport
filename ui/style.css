@@ -215,6 +215,7 @@ a { color: inherit; }
 .input,
 .field input,
 .field textarea,
+.field select,
 .select select {
   width: 100%;
   height: 34px;
@@ -231,6 +232,7 @@ a { color: inherit; }
 .input:focus,
 .field input:focus,
 .field textarea:focus,
+.field select:focus,
 .select select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -2014,3 +2016,46 @@ body.side-hidden .sidebar { display: none; }
   .main-panel { height: calc(100vh - 24px); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .main-panel > .panel-bar { top: 0; }
 }
+
+/* ---------- First-run welcome ---------- */
+.welcome {
+  margin: 4px 0 18px;
+  padding: 26px 28px 18px;
+  background: var(--surface);
+  border: 1px solid var(--panel-line);
+  border-radius: 20px;
+}
+.welcome[hidden] { display: none; }
+.welcome-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.welcome-title { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.welcome-sub { margin-top: 4px; color: var(--text-2); font-size: 13.5px; }
+.welcome-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.welcome-step {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.welcome-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 650;
+}
+.welcome-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.welcome-step-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; }
+.welcome-optional { font-size: 11px; font-weight: 500; color: var(--text-3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
+.welcome-text { color: var(--text-2); font-size: 12.5px; line-height: 1.5; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
+.welcome-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+.welcome-close svg { width: 16px; height: 16px; }
+.set-steps { display: flex; flex-direction: column; gap: 6px; padding: 0 16px 14px; }
+.set-steps .hint { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }

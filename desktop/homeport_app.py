@@ -36,6 +36,10 @@ def _healthy(port: int) -> bool:
 
 def _port_free(port: int) -> bool:
     with socket.socket() as s:
+        if os.name != "nt":
+            # like uvicorn: a port the last run just let go of (TIME_WAIT) is free
+            # to reuse, so Homeport stays on 7777 instead of drifting to 7778
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind(("127.0.0.1", port))
             return True

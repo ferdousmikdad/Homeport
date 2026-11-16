@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .detect import _free_port as free_port
-from . import ai_routes, app_settings, feedback, github, previews, project_file, updates, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
+from . import ai_routes, app_settings, feedback, github, local_https, previews, project_file, updates, local_ai, diagnose, gitinfo, icons, monitor, osutil, paths, proxy, services, wordpress, procman, registry as registry_module, share_routes, system_routes
 
 __all__ = ["app"]
 
@@ -300,6 +300,7 @@ async def _build_state(cfg: dict, now: float) -> dict:
         "auto_restart": bool(cfg.get("auto_restart")),
         "autostart": bool(cfg.get("autostart", False)),
         "notify": bool(cfg.get("notify", True)),
+        "https": cfg.get("https") if isinstance(cfg.get("https"), bool) else None,
         "status": status,
         "pid": int(pid) if pid else None,
         "started_at": started_at,
@@ -445,6 +446,7 @@ async def _lifespan(_app: FastAPI):
     local_ai.asgi_app = app
     github.asgi_app = app
     project_file.asgi_app = app
+    local_https.asgi_app = app
     previews.asgi_app = app
     previews.get_app = lambda aid: registry.get(aid)
     previews.add_app = lambda cfg: registry.add(cfg)
@@ -468,10 +470,15 @@ async def _lifespan(_app: FastAPI):
         await _refresh_all()
     _ticker = asyncio.create_task(_tick_loop())
     update_task = asyncio.create_task(updates.background_loop())
+    if local_https.has_ca():  # set up before: serve https://<app>.localhost again
+        with contextlib.suppress(Exception):
+            await local_https.start()
     try:
         yield
     finally:
         update_task.cancel()
+        with contextlib.suppress(Exception):
+            await local_https.stop()
         if _ticker is not None:
             _ticker.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -512,6 +519,7 @@ app.include_router(updates.router)
 app.include_router(project_file.router)
 app.include_router(previews.router)
 app.include_router(share_routes.router)
+app.include_router(local_https.router)
 # Named URLs (<id>.localhost) and password-protected shares, routed by Host.
 app.add_middleware(proxy.HostProxyMiddleware)
 
@@ -597,6 +605,7 @@ async def create_app(request: Request) -> dict:
         "auto_restart": bool(body.get("auto_restart", False)),
         "autostart": bool(body.get("autostart", False)),
         "notify": bool(body.get("notify", True)),
+        "https": body.get("https") if isinstance(body.get("https"), bool) else None,
         "env": _clean_env(body.get("env")),
     }
     if entry:
@@ -663,6 +672,8 @@ async def update_app(app_id: str, request: Request) -> dict:
         patch["autostart"] = bool(body.get("autostart"))
     if "notify" in body:
         patch["notify"] = bool(body.get("notify"))
+    if "https" in body:  # true / false, or null = follow the Settings default
+        patch["https"] = body.get("https") if isinstance(body.get("https"), bool) else None
     if "env" in body:
         patch["env"] = _clean_env(body.get("env"))
 

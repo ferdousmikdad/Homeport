@@ -22,7 +22,7 @@ from . import osutil, paths
 
 router = APIRouter()
 
-DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None, "notify_comments": None}
+DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None, "notify_comments": None, "https_default": None}
 _lock = threading.Lock()
 
 
@@ -68,6 +68,10 @@ def _validate(key: str, value: Any) -> Any:
     if key == "notify_comments":  # None/True = on (the default), False = off
         if not isinstance(value, bool):
             raise HTTPException(status_code=400, detail="notify_comments must be true or false")
+        return value
+    if key == "https_default":  # open apps over HTTPS unless an app says otherwise (off by default)
+        if not isinstance(value, bool):
+            raise HTTPException(status_code=400, detail="https_default must be true or false")
         return value
     if key == "check_updates":  # None/True = on (the default), False = off
         if not isinstance(value, bool):

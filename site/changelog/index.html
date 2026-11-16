@@ -73,6 +73,38 @@
     <p class="intro">New features and fixes in Homeport. Follow along on <a href="https://github.com/ferdousmikdad/Homeport/commits/main">GitHub</a>.</p>
   </div>
 
+  <article class="release" id="v1-2-0">
+    <div class="release-meta"><span class="v">v1.2.0</span><time datetime="2026-11-17">November 17, 2026</time></div>
+    <div>
+      <h2>Team setup in one file, pull request previews, and local HTTPS</h2>
+      <p class="muted">Share your whole setup with a <code>homeport.json</code>, run a pull request next to your own copy, open apps at <code>https://app.localhost</code>, and pick Gemini through Google Antigravity.</p>
+      <h3>New</h3>
+      <ul>
+        <li><strong>homeport.json team setup:</strong> one file in a repo describes its apps, databases and start order. <em>Add app</em>, <em>Discover projects</em> and <em>Add from GitHub</em> notice it and set everything up in one click — after showing you every command it will run. Save any category as <code>homeport.json</code> from its heading.</li>
+        <li><strong>Pull request previews:</strong> on an app from GitHub, <em>⋯ → Pull requests → Preview</em> runs the pull request in its own folder on its own port, so your work is never touched. Share the preview on the pull request, and remove it when you're done.</li>
+        <li><strong>Comments → GitHub issues:</strong> turn a visitor's comment into an issue with the page, screen size and thread filled in. You see the issue before it's created.</li>
+        <li><strong>Notifications for new comments:</strong> a desktop notification when a visitor comments or replies on a shared link (Settings → Sharing &amp; feedback).</li>
+        <li><strong>Local HTTPS:</strong> Settings → General → <em>Set up HTTPS</em> makes Homeport's own certificate and asks your system to trust it once. Then apps open at <code>https://&lt;app&gt;.localhost</code> — all of them, or per app in Edit — with no change to the app. The certificate only works for localhost names and never leaves your computer.</li>
+        <li><strong>Antigravity (Gemini):</strong> Ask AI can use Google Antigravity's <code>agy</code> with your own Google account and Gemini models. If it isn't installed, Homeport shows how to get it.</li>
+        <li><strong>Welcome:</strong> a three-step start when Homeport has no apps yet — add your projects, connect GitHub, pick your AI. Reopen it any time from ⌘K → <em>Getting started</em>.</li>
+        <li><strong>Group menu:</strong> group apps by category, status, type or folder, with start-all and stop-all on every section.</li>
+      </ul>
+      <h3>Improved</h3>
+      <ul>
+        <li>Wider, cleaner app cards: the description on its own row and a footer with the address (or type and port) and the buttons.</li>
+        <li>The Mac app's title bar takes Homeport's own colours and dims with dialogs, so it no longer looks like a browser frame.</li>
+        <li>Only the apps panel scrolls; the sidebar stays put.</li>
+        <li>Every icon button shows a label on hover, in the desktop app too.</li>
+        <li>Windows: choosing a folder opens the full Explorer-style picker instead of the small folder tree.</li>
+      </ul>
+      <h3>Fixed</h3>
+      <ul>
+        <li>Your old “group by category” choice carries over to the new Group menu.</li>
+        <li>Very long requests to the assistant get a clear message instead of failing on Windows' command-line limit.</li>
+      </ul>
+    </div>
+  </article>
+
   <article class="release" id="v1-1-0">
     <div class="release-meta"><span class="v">v1.1.0</span><time datetime="2026-11-14">November 14, 2026</time></div>
     <div>

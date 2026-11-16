@@ -147,6 +147,7 @@
       <p id="empty-title" class="empty-title">No apps yet</p>
       <p id="empty-text" class="empty-text">Add a local project to start, stop and monitor it from here.</p>
     </div>
+    <section id="welcome" class="welcome" hidden aria-labelledby="welcome-title"></section>
     </div>
   </main>
 
@@ -310,6 +311,15 @@
           <label class="check"><input id="f-autostart" name="autostart" type="checkbox" /> Start when the manager starts</label>
           <label class="check"><input id="f-notify" name="notify" type="checkbox" checked /> Notify me when it crashes</label>
         </div>
+
+        <label class="field single-only" title="Open this app at https://<name>.localhost (set up in Settings → General → Local HTTPS)">
+          <span>HTTPS</span>
+          <select id="f-https" name="https">
+            <option value="">Use the default from Settings</option>
+            <option value="on">On — open at https://</option>
+            <option value="off">Off — open at http://</option>
+          </select>
+        </label>
 
         <div id="modal-meta-box" class="modal-meta" hidden>
           Folder created <span id="f-created-at">&mdash;</span> &middot; modified <span id="f-updated-at">&mdash;</span>

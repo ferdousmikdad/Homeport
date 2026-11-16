@@ -100,3 +100,26 @@ def test_cloudflared_asset_names():
     assert r("windows", "AMD64") == "cloudflared-windows-amd64.exe"
     assert r("linux", "x86_64") == "cloudflared-linux-amd64"
     assert r("linux", "aarch64") == "cloudflared-linux-arm64"
+
+
+def test_windows_folder_picker_is_the_explorer_dialog():
+    import base64
+
+    script = base64.b64decode(osutil._ps_encode(osutil.WIN_FOLDER_SCRIPT)).decode("utf-16-le")
+    assert script == osutil.WIN_FOLDER_SCRIPT
+    # the modern Explorer-style dialog in folder mode, with the old one only as a fallback
+    assert "FOS_PICKFOLDERS" in script and "[HomeportFolderPicker]::Pick" in script
+    assert script.index("HomeportFolderPicker]::Pick") < script.index("FolderBrowserDialog")
+    assert "\n'@\n" in script and "'@" not in osutil.WIN_FOLDER_PICKER_CS  # here-string stays intact
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="compiles the C# with Windows PowerShell")
+def test_windows_folder_picker_compiles():
+    import subprocess
+
+    ps = osutil._powershell()
+    script = "$src = @'\n" + osutil.WIN_FOLDER_PICKER_CS + "\n'@\nAdd-Type -TypeDefinition $src -Language CSharp\n" \
+             "[Console]::Out.Write([HomeportFolderPicker].FullName)"
+    res = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-EncodedCommand", osutil._ps_encode(script)],
+                         capture_output=True, text=True, timeout=120)
+    assert res.returncode == 0 and res.stdout.strip() == "HomeportFolderPicker", res.stderr

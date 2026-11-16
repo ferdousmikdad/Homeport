@@ -23,6 +23,7 @@
     logs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
     open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg>',
     restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>',
     terminal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4"/></svg>',
@@ -108,6 +109,7 @@
     fAuto: $("f-auto"),
     fAutostart: $("f-autostart"),
     fNotify: $("f-notify"),
+    fHttps: $("f-https"),
     modalClose: $("modal-close"),
     modalCancel: $("modal-cancel"),
     modalSubmit: $("modal-submit"),
@@ -162,6 +164,14 @@
   }
 
   const GROUPS = ["none", "category", "status", "type", "folder"];
+  // "Group by" used to be an on/off switch saved as "group" ("1" = by category,
+  // and on by default). Carry that choice over to the new menu.
+  function initialGroupBy() {
+    const saved = loadPref("group_by", null);
+    if (GROUPS.includes(saved)) return saved;
+    return loadPref("group", "1") === "1" ? "category" : "none";
+  }
+
   const SORTS = ["manual", "name-asc", "name-desc", "path", "created-desc", "created-asc", "updated-desc", "status", "port", "mem"];
 
   const state = {
@@ -170,7 +180,7 @@
     groupHeads: new Map(),
     viewMode: loadPref("view", "grid") === "list" ? "list" : "grid",
     sortMode: SORTS.includes(loadPref("sort", "manual")) ? loadPref("sort", "manual") : "manual",
-    groupBy: GROUPS.includes(loadPref("group_by", "none")) ? loadPref("group_by", "none") : "none",
+    groupBy: initialGroupBy(),
     categoryFilter: loadPref("category", ""),
     activeFilter: "all",
     searchQuery: "",
@@ -372,8 +382,29 @@
     return null;
   }
 
-  /** http://<id>.localhost:<manager port>/ — served by Homeport's proxy. */
+  // Local HTTPS (Settings → General): GET /api/https, refreshed on start and in Settings.
+  const httpsState = { st: null };
+
+  function usesHttps(app) {
+    const st = httpsState.st;
+    if (!st || !st.running || !st.port) return false;
+    return app.https === true || (app.https !== false && !!st.default);
+  }
+
+  async function loadHttps() {
+    try {
+      httpsState.st = await request("/api/https");
+    } catch (err) {
+      httpsState.st = null;
+    }
+    render();
+    if (settings.open) renderSettings();
+    return httpsState.st;
+  }
+
+  /** http://<id>.localhost:<manager port>/ — served by Homeport's proxy (https://…:<https port>/ when on). */
   function namedUrl(app) {
+    if (usesHttps(app)) return "https://" + app.id + ".localhost:" + httpsState.st.port + "/";
     const port = window.location.port ? ":" + window.location.port : "";
     return "http://" + app.id + ".localhost" + port + "/";
   }
@@ -1038,7 +1069,7 @@
     }
     v.miBrowser.disabled = port === null && !app.command;
     v.cardLink.hidden = !(port !== null && isActive(app));
-    v.cardLinkText.textContent = app.id + ".localhost";
+    v.cardLinkText.textContent = (usesHttps(app) ? "https://" : "") + app.id + ".localhost";
     v.cardLink.href = namedUrl(app);
     v.cardLink.title = "Open " + namedUrl(app) + " (also at localhost:" + port + ")";
     v.name.title = app.name + "\n" + app.path;
@@ -1741,7 +1772,7 @@
   }
 
   function groupLabel(key) {
-    if (key === UNCATEGORIZED) return state.apps.some((a) => appCategory(a)) ? "Other" : "No category";
+    if (key === UNCATEGORIZED) return state.apps.some((a) => appCategory(a)) ? "Other" : "All apps";
     if (key === OTHER) return "Other";
     return key;
   }
@@ -1907,6 +1938,7 @@
 
   function updateAllApps(apps) {
     state.apps = Array.isArray(apps) ? apps : [];
+    state.appsLoaded = true;
     render();
     openReadyApps();
   }
@@ -1998,7 +2030,8 @@
     });
 
     const empty = nodes.length === 0;
-    els.empty.hidden = !empty;
+    const welcome = renderWelcome();
+    els.empty.hidden = !empty || welcome;
     if (empty) {
       const none = state.apps.length === 0;
       els.emptyTitle.textContent = none ? "No apps yet" : "Nothing matches";
@@ -2006,6 +2039,109 @@
         ? "Add a local project to start, stop and monitor it from here."
         : "Try a different search, status or category.";
     }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* First-run welcome                                                   */
+  /* ------------------------------------------------------------------ */
+
+  // With no apps yet, the empty page becomes three short steps. Each one can be
+  // skipped; it goes away once an app exists and comes back from ⌘K → Getting started.
+  const welcome = { built: false, forced: false, ai: null };
+
+  function welcomeStep(num, title, text, buttons, optional) {
+    const step = el("div", "welcome-step");
+    step.appendChild(el("span", "welcome-num", String(num)));
+    const body = el("div", "welcome-body");
+    const head = el("div", "welcome-step-title", title);
+    if (optional) head.appendChild(el("span", "welcome-optional", "Optional"));
+    body.appendChild(head);
+    const p = el("p", "welcome-text", text);
+    body.appendChild(p);
+    const row = el("div", "welcome-actions");
+    buttons.forEach((b) => row.appendChild(b));
+    body.appendChild(row);
+    step.appendChild(body);
+    return { step, text: p };
+  }
+
+  function welcomeButton(text, cls, onClick) {
+    const b = button("btn small" + (cls ? " " + cls : ""), text);
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function buildWelcome() {
+    const box = $("welcome");
+    box.textContent = "";
+    const head = el("div", "welcome-head");
+    const titles = el("div");
+    const h = el("h2", "welcome-title", "Welcome to Homeport");
+    h.id = "welcome-title";
+    titles.appendChild(h);
+    titles.appendChild(el("p", "welcome-sub", "Every local project in one place. Three quick steps to get going."));
+    head.appendChild(titles);
+    const close = icon(button("square-btn welcome-close", null, "Close"), "close");
+    close.title = "Close — reopen it any time from Commands (⌘K) → Getting started";
+    close.addEventListener("click", dismissWelcome);
+    head.appendChild(close);
+    box.appendChild(head);
+
+    const steps = el("div", "welcome-steps");
+    steps.appendChild(welcomeStep(1, "Add your projects",
+      "Pick a folder and Homeport finds the apps in it (Node, Python, PHP, Ruby, Go, static sites…), or add one by hand.",
+      [welcomeButton("Scan a folder", "primary", () => openDiscover()), welcomeButton("Add one app", "", () => openAddModal())]).step);
+    steps.appendChild(welcomeStep(2, "Connect GitHub",
+      "Clone one of your repositories and run it in one click, preview pull requests and turn comments into issues.",
+      [welcomeButton("Add from GitHub", "", () => openGitHub())], true).step);
+    const ai = welcomeStep(3, "Pick your AI",
+      "An assistant that can add apps, fix port clashes and explain crashes.",
+      [welcomeButton("Choose an assistant", "", () => openSettings("ai"))], true);
+    welcome.ai = ai.text;
+    steps.appendChild(ai.step);
+    box.appendChild(steps);
+
+    const foot = el("div", "welcome-foot");
+    foot.appendChild(welcomeButton("Skip for now", "ghost", dismissWelcome));
+    box.appendChild(foot);
+    welcome.built = true;
+    welcomeAiStatus();
+  }
+
+  // Say which assistant is already on this computer.
+  async function welcomeAiStatus() {
+    try {
+      const st = await request("/api/ai/status");
+      if (!welcome.ai) return;
+      const found = [st.available ? "Claude Code" : null, st.antigravity && st.antigravity.available ? "Antigravity" : null].filter(Boolean);
+      welcome.ai.textContent = found.length
+        ? found.join(" and ") + (found.length > 1 ? " are" : " is") + " already on this computer — pick one, or run a free model offline."
+        : "Use Claude Code or Google Antigravity with your own account, or run a free model offline on this computer.";
+    } catch (err) {
+      /* keep the general text */
+    }
+  }
+
+  /** Show or hide the welcome; true while it's on screen. */
+  function renderWelcome() {
+    const box = $("welcome");
+    const show = welcome.forced || (state.appsLoaded && state.apps.length === 0 && loadPref("welcome_done", "") !== "1");
+    if (show && !welcome.built) buildWelcome();
+    box.hidden = !show;
+    return show && state.apps.length === 0;
+  }
+
+  function showWelcome() {
+    welcome.forced = true;
+    render();
+    const box = $("welcome");
+    box.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function dismissWelcome() {
+    welcome.forced = false;
+    savePref("welcome_done", "1");
+    render();
   }
 
   /* ------------------------------------------------------------------ */
@@ -3003,6 +3139,7 @@
     els.fAuto.checked = editing && Boolean(app.auto_restart);
     els.fAutostart.checked = editing && Boolean(app.autostart);
     els.fNotify.checked = !editing || app.notify !== false;
+    els.fHttps.value = editing && app.https === true ? "on" : editing && app.https === false ? "off" : "";
     const hasDates = editing && (app.created_at || app.updated_at);
     els.modalMetaBox.hidden = !hasDates;
     if (hasDates) {
@@ -3246,6 +3383,7 @@
       auto_restart: els.fAuto.checked,
       autostart: els.fAutostart.checked,
       notify: els.fNotify.checked,
+      https: els.fHttps.value === "on" ? true : els.fHttps.value === "off" ? false : null,
     };
     if (!payload.name || !payload.path) {
       toast("Name and folder are required", "warn");
@@ -3655,6 +3793,7 @@
 
     const act = (title, iconName, run, keywords) => add({ kind: "action", title: title, icon: iconName, run: run, keywords: keywords || "" });
     act("Add app", "plus", () => openAddModal(), "new project create");
+    act("Getting started", "layers", () => showWelcome(), "welcome start intro onboarding help");
     act("Discover projects", "discover", () => openDiscover(), "scan folder import find");
     act("Add from GitHub…", "discover", () => openGitHub(), "clone repo repository git github");
     act("Databases & services…", "layers", () => openServices(), "postgres mysql mariadb redis mongodb mailpit database");
@@ -5012,6 +5151,7 @@
         await saveSetting({ check_updates: on });
         await loadUpdate(on);
       })]));
+    paneHttps(body);
     const mod = IS_APPLE ? "⌘" : "Ctrl ";
     const g3 = setGroup("Keyboard shortcuts");
     [
@@ -5022,6 +5162,92 @@
       ["Add a comment (on a shared page)", "C"],
     ].forEach(([label, key]) => g3.group.appendChild(setRow(label, null, [el("kbd", "set-kbd", key)])));
     body.appendChild(g3.wrap);
+  }
+
+  // Local HTTPS: set up once (Homeport's own certificate, trusted by the system), then
+  // apps open at https://<app>.localhost — per app in Edit, or all by default here.
+  function paneHttps(body) {
+    const st = httpsState.st;
+    const g = setGroup("Local HTTPS", "Apps keep running on plain HTTP; Homeport serves them over HTTPS in front. The certificate only works for localhost names and never leaves this computer.");
+    body.appendChild(g.wrap);
+    if (!st) {
+      g.group.appendChild(setRow("HTTPS", "Checking…", []));
+      return;
+    }
+    if (!st.available) {
+      g.group.appendChild(setRow("HTTPS", "This Homeport build can't make certificates", []));
+      return;
+    }
+    const busy = (b, text) => {
+      b.disabled = true;
+      b.textContent = text;
+    };
+    if (!st.ready) {
+      const setup = button("btn small primary", "Set up HTTPS");
+      setup.addEventListener("click", async () => {
+        busy(setup, st.platform === "mac" ? "Confirm in the Keychain prompt…" : "Setting up…");
+        try {
+          const res = await request("/api/https/setup", { method: "POST" });
+          httpsState.st = res;
+          const t = res.trust || {};
+          if (t.ok) toast("HTTPS is ready — apps can open at https://<app>.localhost", "ok");
+          else if (t.manual) toast("HTTPS is running — trust the certificate in your browser (steps in Settings)", "warn");
+          else toast("HTTPS is running, but the certificate isn't trusted yet: " + (t.detail || "try again"), "warn");
+        } catch (err) {
+          toast("Couldn't set up HTTPS: " + err.message, "err");
+        }
+        loadHttps();
+      });
+      const sub = st.platform === "mac" ? "Homeport makes its own certificate and macOS asks for your password once to trust it"
+        : st.platform === "windows" ? "Homeport makes its own certificate and Windows asks once to trust it"
+        : "Homeport makes its own certificate; you then trust it in your browser";
+      g.group.appendChild(setRow("Open apps at https://app.localhost", sub, [setup]));
+      return;
+    }
+    const state = st.trusted === true ? ["Trusted", "ok"] : st.trusted === false ? ["Not trusted yet", "warn"] : ["Trust it in your browser", ""];
+    const controls = [setValue(state[0], state[1])];
+    if (st.trusted !== true && (st.platform === "mac" || st.platform === "windows")) {
+      const again = button("btn small", "Trust certificate");
+      again.addEventListener("click", async () => {
+        busy(again, "Confirm in the system prompt…");
+        try {
+          const res = await request("/api/https/trust", { method: "POST" });
+          httpsState.st = res;
+          toast(res.trust && res.trust.ok ? "Certificate trusted" : "Still not trusted: " + ((res.trust && res.trust.detail) || "try again"), res.trust && res.trust.ok ? "ok" : "warn");
+        } catch (err) {
+          toast(err.message, "err");
+        }
+        loadHttps();
+      });
+      controls.push(again);
+    }
+    g.group.appendChild(setRow("HTTPS", st.running ? "Serving on port " + st.port : "Not running — restart Homeport", controls));
+    g.group.appendChild(setRow("Open apps over HTTPS by default", "Each app can still choose in Edit → HTTPS",
+      [setSwitch(!!st.default, "Open apps over HTTPS by default", async (on) => {
+        await saveSetting({ https_default: on });
+        loadHttps();
+      })]));
+    if (st.steps && st.steps.length) {
+      const steps = el("div", "set-steps");
+      st.steps.forEach((s) => steps.appendChild(el("p", "hint", s)));
+      g.group.appendChild(setRow("Trust the certificate", null, []));
+      g.group.appendChild(steps);
+    }
+    const remove = button("btn small ghost danger", "Remove local certificates");
+    remove.addEventListener("click", () => {
+      showConfirm("Remove local certificates?",
+        "HTTPS stops, apps go back to http://, and Homeport asks the system to forget its certificate. You can set it up again later.",
+        "Remove", async () => {
+          try {
+            httpsState.st = await request("/api/https", { method: "DELETE" });
+            toast("Local certificates removed", "ok");
+          } catch (err) {
+            toast(err.message, "err");
+          }
+          loadHttps();
+        }, "danger");
+    });
+    g.group.appendChild(setRow("Certificates", st.ca_path || null, [remove]));
   }
 
   function paneAi(body) {
@@ -5457,6 +5683,7 @@
     settings.open = true;
     settings.github = null;
     settings.githubOthers = false;
+    loadHttps();
     if (!settings.about) request("/api/about").then((a) => { settings.about = a; if (settings.open) renderSettings(); }).catch(() => {});
     $("settings-backdrop").hidden = false;
     renderSettings();
@@ -5919,6 +6146,7 @@
   }
   syncWindowChrome();
 
+  loadHttps();
   render();
   startSSE();
 })();

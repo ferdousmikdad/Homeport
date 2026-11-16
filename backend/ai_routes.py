@@ -46,6 +46,9 @@ _EXTRA_PATHS = [
     os.path.expanduser("~/.local/bin"),
     os.path.expanduser("~/.claude/local"),
     os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "claude"),
+    # Google Antigravity's own install folder, in case its installer didn't add agy to PATH
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Antigravity", "bin"),
+    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Antigravity"),
 ]
 # Tools allowed in read-only "ask" mode; anything else is auto-denied by `claude -p`.
 _ASK_TOOLS = ["Read", "Grep", "Glob", "Bash(curl:*)", "Bash(lsof:*)", "Bash(ps:*)", "Bash(cat:*)", "Bash(ls:*)"]
@@ -109,7 +112,14 @@ def _apps_summary(states: list[dict]) -> str:
     return text
 
 
-def system_prompt(base_url: str, states: list[dict], mode: str) -> str:
+# A request longer than this is refused with a clear message.
+MAX_PROMPT = 16_000
+# agy takes the whole prompt as one command-line argument, and Windows caps a
+# command line near 32,767 characters: stay well under it.
+AGY_ARG_LIMIT = 28_000
+
+
+def system_prompt(base_url: str, states: list[dict], mode: str, *, snapshot: bool = True) -> str:
     lines = [
         "You are the built-in assistant of Homeport, a local dashboard that starts, stops and",
         f"monitors the user's localhost apps. The manager's API is running at {base_url} and its source",
@@ -133,7 +143,10 @@ def system_prompt(base_url: str, states: list[dict], mode: str) -> str:
     if mode == "ask":
         lines += ["", "READ-ONLY MODE: answer and diagnose, but do not change anything (only GET requests,",
                   "no file edits). If a change is needed, describe it and tell the user to switch to Act mode."]
-    lines += ["", "Current apps snapshot:", _apps_summary(states)]
+    if snapshot:
+        lines += ["", "Current apps snapshot:", _apps_summary(states)]
+    else:
+        lines += ["", "The apps list is too long to include here: read it with GET /api/apps first."]
     return "\n".join(lines)
 
 
@@ -362,6 +375,8 @@ async def ai_ask(request: Request) -> StreamingResponse:
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="request body must be a JSON object")
     prompt = str(body.get("prompt") or "").strip()
+    if len(prompt) > MAX_PROMPT:
+        raise HTTPException(status_code=400, detail=f"that's too long for the assistant — keep it under {MAX_PROMPT:,} characters")
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
     mode = "ask" if body.get("mode") == "ask" else "act"
@@ -381,7 +396,10 @@ async def ai_ask(request: Request) -> StreamingResponse:
     states = get_states() if get_states else []
     sys_prompt = system_prompt(base_url, states, mode)
     if agent == "antigravity":
-        cmd = build_agy_command(cli, model=model, session_id=session_id, mode=mode, prompt=agy_prompt(sys_prompt, prompt))
+        full = agy_prompt(sys_prompt, prompt)
+        if len(full) > AGY_ARG_LIMIT:  # many apps: leave the snapshot out, agy can ask the API
+            full = agy_prompt(system_prompt(base_url, states, mode, snapshot=False), prompt)
+        cmd = build_agy_command(cli, model=model, session_id=session_id, mode=mode, prompt=full)
     else:
         cmd = build_command(cli, model=model, session_id=session_id, mode=mode, sys_prompt=sys_prompt)
 

@@ -227,6 +227,91 @@ def notify(title: str, message: str) -> None:
         pass
 
 
+# Windows: the Explorer-style folder picker (IFileOpenDialog with FOS_PICKFOLDERS,
+# the one other apps use), not the small tree-view FolderBrowserDialog. If the
+# modern dialog can't be created, the old one is shown instead.
+WIN_FOLDER_PICKER_CS = r"""
+using System;
+using System.Runtime.InteropServices;
+public static class HomeportFolderPicker {
+    [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")] class FileOpenDialogCo { }
+    [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IFileDialog {
+        [PreserveSig] int Show(IntPtr parent);
+        void SetFileTypes(uint count, IntPtr specs);
+        void SetFileTypeIndex(uint index);
+        void GetFileTypeIndex(out uint index);
+        void Advise(IntPtr events, out uint cookie);
+        void Unadvise(uint cookie);
+        void SetOptions(uint options);
+        void GetOptions(out uint options);
+        void SetDefaultFolder(IShellItem item);
+        void SetFolder(IShellItem item);
+        void GetFolder(out IShellItem item);
+        void GetCurrentSelection(out IShellItem item);
+        void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string name);
+        void GetFileName([MarshalAs(UnmanagedType.LPWStr)] out string name);
+        void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string title);
+        void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string text);
+        void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string label);
+        void GetResult(out IShellItem item);
+    }
+    [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellItem {
+        void BindToHandler(IntPtr bc, [MarshalAs(UnmanagedType.LPStruct)] Guid bhid, [MarshalAs(UnmanagedType.LPStruct)] Guid riid, out IntPtr ppv);
+        void GetParent(out IShellItem parent);
+        void GetDisplayName(uint sigdn, [MarshalAs(UnmanagedType.LPWStr)] out string name);
+    }
+    const uint FOS_PICKFOLDERS = 0x20, FOS_FORCEFILESYSTEM = 0x40, FOS_PATHMUSTEXIST = 0x800;
+    const uint SIGDN_FILESYSPATH = 0x80058000;
+    // The chosen folder, or null when cancelled.
+    public static string Pick(IntPtr owner, string title, string okLabel) {
+        IFileDialog dialog = (IFileDialog)new FileOpenDialogCo();
+        try {
+            uint options;
+            dialog.GetOptions(out options);
+            dialog.SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
+            dialog.SetTitle(title);
+            dialog.SetOkButtonLabel(okLabel);
+            if (dialog.Show(owner) != 0) return null;
+            IShellItem item;
+            dialog.GetResult(out item);
+            string path;
+            item.GetDisplayName(SIGDN_FILESYSPATH, out path);
+            return path;
+        } finally {
+            Marshal.ReleaseComObject(dialog);
+        }
+    }
+}
+"""
+
+WIN_FOLDER_SCRIPT = (
+    "$ErrorActionPreference = 'Stop'\n"
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n"
+    "Add-Type -AssemblyName System.Windows.Forms\n"
+    "$top = New-Object System.Windows.Forms.Form\n"
+    "$top.TopMost = $true\n"
+    "$src = @'\n" + WIN_FOLDER_PICKER_CS + "\n'@\n"
+    "try {\n"
+    "  Add-Type -TypeDefinition $src -Language CSharp\n"
+    "  $path = [HomeportFolderPicker]::Pick($top.Handle, 'Choose the project folder', 'Select folder')\n"
+    "  if ($path) { [Console]::Out.Write($path) }\n"
+    "} catch {\n"
+    "  $d = New-Object System.Windows.Forms.FolderBrowserDialog\n"
+    "  $d.Description = 'Choose the project folder'\n"
+    "  $d.ShowNewFolderButton = $false\n"
+    "  if ($d.ShowDialog($top) -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }\n"
+    "} finally { $top.Dispose() }\n"
+)
+
+
+def _ps_encode(script: str) -> str:
+    """PowerShell -EncodedCommand: base64 of UTF-16LE, so no quoting can break the script."""
+    import base64
+    return base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+
+
 class PickerUnavailable(RuntimeError):
     """No native folder chooser on this system (UI falls back to its own)."""
 
@@ -240,15 +325,7 @@ def pick_folder(timeout: float = 300.0) -> Optional[str]:
         ps = _powershell()
         if not ps:
             raise PickerUnavailable("PowerShell not found")
-        script = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
-            "$d = New-Object System.Windows.Forms.FolderBrowserDialog;"
-            "$d.Description = 'Choose the project folder';"
-            "$d.ShowNewFolderButton = $false;"
-            "$top = New-Object System.Windows.Forms.Form; $top.TopMost = $true;"
-            "if ($d.ShowDialog($top) -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }"
-        )
-        cmd = [ps, "-NoProfile", "-NonInteractive", "-STA", "-Command", script]
+        cmd = [ps, "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", _ps_encode(WIN_FOLDER_SCRIPT)]
     else:
         if shutil.which("zenity"):
             cmd = ["zenity", "--file-selection", "--directory", "--title=Choose the project folder"]
@@ -258,8 +335,8 @@ def pick_folder(timeout: float = 300.0) -> Optional[str]:
             raise PickerUnavailable("install zenity or kdialog for a native folder picker")
 
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                             creationflags=_NO_WINDOW if IS_WINDOWS else 0)
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             timeout=timeout, creationflags=_NO_WINDOW if IS_WINDOWS else 0)
     except subprocess.TimeoutExpired:
         return None
     except OSError as exc:
