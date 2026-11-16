@@ -13,6 +13,7 @@ Used by the installers (.dmg / Setup.exe / AppImage / .deb). It:
 from __future__ import annotations
 
 import os
+import re
 import socket
 import sys
 import threading
@@ -40,6 +41,55 @@ def _port_free(port: int) -> bool:
             return True
         except OSError:
             return False
+
+
+def _parse_color(value: str) -> tuple[int, int, int] | None:
+    """'rgb(11, 11, 13)', 'rgba(…)' or '#0b0b0d' -> (11, 11, 13)."""
+    value = str(value or "").strip()
+    m = re.fullmatch(r"#([0-9a-fA-F]{6})", value)
+    if m:
+        h = m.group(1)
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    m = re.fullmatch(r"rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*[\d.]+\s*)?\)", value)
+    if m:
+        rgb = tuple(int(x) for x in m.groups())
+        if all(0 <= c <= 255 for c in rgb):
+            return rgb  # type: ignore[return-value]
+    return None
+
+
+def _mac_chrome(nswindow, rgb: tuple[int, int, int], dark: bool) -> None:
+    """Make the Mac title bar see-through, untitled and the page's colour (main thread only)."""
+    import AppKit
+
+    color = AppKit.NSColor.colorWithSRGBRed_green_blue_alpha_(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1.0)
+    nswindow.setTitlebarAppearsTransparent_(True)
+    nswindow.setTitleVisibility_(AppKit.NSWindowTitleHidden)
+    nswindow.setBackgroundColor_(color)
+    # pywebview paints the title bar's own view with the system colour: repaint it.
+    try:
+        nswindow.contentView().superview().subviews().lastObject().setBackgroundColor_(color)
+    except Exception:
+        pass
+    name =AppKit.NSAppearanceNameDarkAqua if dark else AppKit.NSAppearanceNameAqua
+    nswindow.setAppearance_(AppKit.NSAppearance.appearanceNamed_(name))
+
+
+class WindowApi:
+    """Called from the page as window.pywebview.api.* (attributes starting with _ stay private)."""
+
+    def __init__(self) -> None:
+        self._window = None
+
+    def set_chrome(self, color: str, dark: bool = False) -> bool:
+        window = self._window
+        rgb = _parse_color(color)
+        if sys.platform != "darwin" or window is None or window.native is None or rgb is None:
+            return False
+        from PyObjCTools import AppHelper
+
+        AppHelper.callAfter(_mac_chrome, window.native, rgb, bool(dark))
+        return True
 
 
 def _log_to_file() -> None:
@@ -81,8 +131,10 @@ def main() -> int:
     shown = False
     if webview is not None:
         try:
+            api = WindowApi()
             window = webview.create_window("Homeport", url, width=1360, height=880, min_size=(900, 600),
-                                           background_color="#f3f3f4", text_select=True)
+                                           background_color="#f3f3f4", text_select=True, js_api=api)
+            api._window = window
             stop_server = homeport.request_quit
 
             def quit_all() -> None:  # "Quit Homeport" in the dashboard closes the window too

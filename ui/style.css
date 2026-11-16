@@ -1984,3 +1984,33 @@ body.side-hidden .sidebar { display: none; }
 .apps.grid-view .group-head { padding-top: 26px; }
 .apps.grid-view .group-head:first-child { padding-top: 2px; }
 .apps.grid-view .group-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* Hover labels (drawn by the page: the desktop window shows no native tooltips) */
+.hover-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 280px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: var(--shadow-pop);
+  animation: hover-tip-in 0.12s ease-out;
+}
+.hover-tip[hidden] { display: none; }
+@keyframes hover-tip-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .hover-tip { animation: none; } }
+
+/* Wide windows behave like a desktop app: the window itself never scrolls,
+   the sidebar stays put and only the apps panel scrolls. */
+@media (min-width: 861px) {
+  html, body { height: 100%; overflow: hidden; }
+  .shell { height: 100vh; min-height: 0; }
+  .main-panel { height: calc(100vh - 24px); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .main-panel > .panel-bar { top: 0; }
+}

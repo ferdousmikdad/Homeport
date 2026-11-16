@@ -399,6 +399,12 @@
     });
   }
 
+  /** The apps panel when it scrolls on its own (wide windows), else null (the page scrolls). */
+  function scrollBox(node) {
+    const box = node ? node.closest(".main-panel") : document.querySelector(".main-panel");
+    return box && getComputedStyle(box).overflowY === "auto" ? box : null;
+  }
+
   function toggleMenu(trigger, menu) {
     const open = menu.hidden;
     closeMenus(open ? menu : null);
@@ -411,8 +417,11 @@
       menu.style.maxHeight = "";
       const t = trigger.getBoundingClientRect();
       const h = menu.scrollHeight;
-      const below = window.innerHeight - t.bottom - 14;
-      const above = t.top - 14;
+      // Inside the scrolling apps panel, its edges are the limit, not the window's.
+      const box = scrollBox(trigger);
+      const r = box ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+      const below = r.bottom - t.bottom - 14;
+      const above = t.top - r.top - 14;
       if (h > below && above > below) {
         menu.classList.add("menu-up");
         if (h > above) menu.style.maxHeight = Math.floor(above) + "px";
@@ -752,7 +761,7 @@
     startBtn.addEventListener("click", () => runAction(id, "start"));
     const toggleBtn = icon(button("round-btn primary-round", null, "Start"), "play");
     const logsBtn = icon(button("round-btn", null, "Logs"), "logs");
-    logsBtn.title = "Logs";
+    logsBtn.title = "View logs";
     const shareBtn = icon(button("round-btn share-btn", null, "Share"), "share");
     shareBtn.title = "Share a public link to this app";
     const menuWrap = el("div", "menu-wrap card-menu");
@@ -1173,7 +1182,7 @@
     v.el.classList.toggle("is-active", active);
     v.toggleBtn.disabled = !active && !app.command;
     v.toggleBtn.setAttribute("aria-label", (active ? "Stop " : "Start ") + app.name);
-    v.toggleBtn.title = !active && !app.command ? "Set a command first (Edit…)" : active ? "Stop" : "Start";
+    v.toggleBtn.title = !active && !app.command ? "Set a command first (Edit…)" : active ? "Stop this app" : "Start this app";
     v.miRestart.disabled = !app.command;
 
     const manual = state.sortMode === "manual";
@@ -1534,7 +1543,7 @@
     if (d.y < edge + 56) dy = -Math.ceil((edge + 56 - d.y) / 5);
     else if (d.y > h - edge) dy = Math.ceil((d.y - (h - edge)) / 5);
     if (dy) {
-      window.scrollBy(0, dy);
+      (scrollBox() || window).scrollBy(0, dy);
       dragTo(d.x, d.y);
     }
     d.scrollRaf = requestAnimationFrame(autoScrollLoop);
@@ -4212,6 +4221,46 @@
   }
 
   // In the chat: a short note with a button to Settings, where models are managed.
+  // Antigravity picked but its `agy` command isn't on this computer: say how to get it.
+  function aiRenderAgySetup() {
+    ai.log.textContent = "";
+    const box = el("div", "ai-setup");
+    box.appendChild(el("h3", null, "Install Google Antigravity"));
+    box.appendChild(el("p", "muted", "This assistant runs Antigravity's agy command on this computer, with your own Google account and Gemini models. Homeport doesn't use any key of its own."));
+    const steps = [
+      ["1. Download and install Antigravity", "From Google's Antigravity website."],
+      ["2. Open it once and sign in", "with your Google account — agy uses that sign-in."],
+      ["3. Come back and check again", "Homeport finds agy by itself."],
+    ];
+    steps.forEach(([title, text]) => {
+      const step = el("div", "ai-setup-step");
+      step.appendChild(el("b", null, title));
+      step.appendChild(el("span", "muted", text));
+      box.appendChild(step);
+    });
+    const row = el("div", "ai-setup-row");
+    const get = setLink("Download Antigravity", "https://antigravity.google/download");
+    get.classList.add("primary");
+    const again = button("btn small", "Check again");
+    again.addEventListener("click", async () => {
+      again.disabled = true;
+      again.textContent = "Checking…";
+      await aiRefresh();
+      if (!ai.agyAvailable) {
+        again.disabled = false;
+        again.textContent = "Check again";
+        toast("Still can't find agy — open Antigravity once, then try again", "warn");
+      } else {
+        toast("Antigravity is ready", "ok");
+      }
+    });
+    const other = button("btn small ghost", "Use another AI");
+    other.addEventListener("click", () => openSettings("ai"));
+    row.append(get, again, other);
+    box.appendChild(row);
+    ai.log.appendChild(box);
+  }
+
   function aiRenderSetupCard(st) {
     ai.log.textContent = "";
     const box = el("div", "ai-setup");
@@ -5532,21 +5581,27 @@
   // Check the selected assistant and show the chat, or its setup screen.
   async function aiRefresh(showSetup) {
     if (ai.provider === "antigravity") {
+      let agy = null;
       try {
         const st = await request("/api/ai/status");
         ai.claudeAvailable = !!st.available;
-        const agy = st.antigravity || {};
+        agy = st.antigravity || {};
         ai.agyAvailable = !!agy.available;
         ai.send.disabled = !agy.available;
-        if (!agy.available) ai.meta.textContent = "agy not found — install Google Antigravity and sign in, or pick another AI";
+        if (!agy.available) ai.meta.textContent = "Antigravity isn't installed on this computer";
         else {
+          if (/isn't installed/.test(ai.meta.textContent)) ai.meta.textContent = "";
           if (!ai.meta.textContent && agy.version) ai.meta.textContent = "Antigravity " + agy.version;
           aiLoadAgyModels();
         }
       } catch (err) {
         ai.meta.textContent = err.message;
       }
-      if (ai.log.querySelector(".ai-setup")) aiRenderEmpty();
+      if (agy && !agy.available) {
+        if (!ai.running) aiRenderAgySetup();
+      } else if (agy && ai.log.querySelector(".ai-setup")) {
+        aiRenderEmpty();
+      }
       return;
     }
     if (ai.provider === "claude") {
@@ -5743,6 +5798,126 @@
       }
     })
     .catch(() => {});
+
+  /* ------------------------------------------------------------------ */
+  /* Hover labels                                                        */
+  /* ------------------------------------------------------------------ */
+
+  // The desktop window's web view never shows `title` tooltips, so Homeport
+  // draws its own: hover anything with a title (or an icon-only button with an
+  // aria-label) and a small label appears. The title is parked in data-tip while
+  // the label shows, so browsers don't show their own on top, then put back.
+  const tip = { node: el("div", "hover-tip"), target: null, timer: null };
+  tip.node.setAttribute("role", "tooltip");
+  tip.node.hidden = true;
+  document.body.appendChild(tip.node);
+
+  function tipText(target) {
+    const t = target.getAttribute("title") || target.dataset.tip || "";
+    if (t) return t;
+    if (target.matches("button, a") && !target.textContent.trim()) return target.getAttribute("aria-label") || "";
+    return "";
+  }
+
+  function tipHide() {
+    clearTimeout(tip.timer);
+    tip.node.hidden = true;
+    const t = tip.target;
+    tip.target = null;
+    if (t && t.dataset.tip !== undefined) {
+      if (!t.hasAttribute("title")) t.setAttribute("title", t.dataset.tip);
+      delete t.dataset.tip;
+    }
+  }
+
+  function tipShow(target) {
+    const text = tipText(target);
+    if (!text || !target.isConnected) return;
+    tip.node.textContent = text;
+    tip.node.hidden = false;
+    const r = target.getBoundingClientRect();
+    const w = tip.node.offsetWidth;
+    const h = tip.node.offsetHeight;
+    const gap = 8;
+    let top = r.top - h - gap;
+    if (top < 6) top = r.bottom + gap; // no room above: show it below
+    const left = Math.min(Math.max(6, r.left + r.width / 2 - w / 2), window.innerWidth - w - 6);
+    tip.node.style.top = Math.round(top) + "px";
+    tip.node.style.left = Math.round(left) + "px";
+  }
+
+  document.addEventListener("pointerover", (e) => {
+    if (e.pointerType === "touch") return;
+    const target = e.target.closest && e.target.closest("[title], button[aria-label], a[aria-label]");
+    if (target === tip.target) return;
+    tipHide();
+    if (!target || !tipText(target)) return;
+    tip.target = target;
+    if (target.hasAttribute("title")) {
+      target.dataset.tip = target.getAttribute("title");
+      target.removeAttribute("title");
+    }
+    tip.timer = setTimeout(() => tipShow(target), 350);
+  });
+  document.addEventListener("pointerout", (e) => {
+    if (tip.target && !tip.target.contains(e.relatedTarget)) tipHide();
+  });
+  ["pointerdown", "keydown", "scroll", "blur"].forEach((name) => window.addEventListener(name, tipHide, true));
+
+  /* ------------------------------------------------------------------ */
+  /* Desktop window: a title bar in the app's own colours                */
+  /* ------------------------------------------------------------------ */
+
+  // In the Mac app the window's title bar is see-through and takes the page's
+  // background, so it reads as part of Homeport instead of a browser frame.
+  // While a dialog dims the page, the title bar dims with it.
+  const chrome = { last: "" };
+
+  function rgbaOf(css) {
+    const m = String(css).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
+    return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+  }
+
+  function windowChromeColor() {
+    let [r, g, b] = rgbaOf(getComputedStyle(document.body).backgroundColor) || [247, 247, 248];
+    // Every visible dimming layer, in the order they stack.
+    const scrims = Array.from(document.querySelectorAll(".backdrop, .cmdk-backdrop")).filter((n) => !n.hidden && getComputedStyle(n).display !== "none");
+    for (const n of scrims) {
+      const c = rgbaOf(getComputedStyle(n).backgroundColor);
+      if (!c || !c[3]) continue;
+      r = r * (1 - c[3]) + c[0] * c[3];
+      g = g * (1 - c[3]) + c[1] * c[3];
+      b = b * (1 - c[3]) + c[2] * c[3];
+    }
+    return "rgb(" + Math.round(r) + ", " + Math.round(g) + ", " + Math.round(b) + ")";
+  }
+
+  function syncWindowChrome() {
+    const api = window.pywebview && window.pywebview.api;
+    if (!api || typeof api.set_chrome !== "function") return;
+    const color = windowChromeColor();
+    const dark = effectiveTheme() === "dark";
+    const key = color + (dark ? " dark" : " light");
+    if (key === chrome.last) return; // only tell the window when something changed
+    chrome.last = key;
+    api.set_chrome(color, dark).catch(() => {
+      chrome.last = "";
+    });
+  }
+  window.addEventListener("pywebviewready", () => {
+    chrome.last = "";
+    syncWindowChrome();
+  });
+  // The bridge can come up a moment after this script runs: try again shortly.
+  [400, 1500, 4000].forEach((ms) => setTimeout(syncWindowChrome, ms));
+  // Theme switches and dialogs opening or closing (they toggle `hidden`).
+  new MutationObserver(syncWindowChrome).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  new MutationObserver(syncWindowChrome).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["hidden"] });
+  if (window.matchMedia) {
+    const mqChrome = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mqChrome.addEventListener) mqChrome.addEventListener("change", syncWindowChrome);
+  }
+  syncWindowChrome();
 
   render();
   startSSE();
