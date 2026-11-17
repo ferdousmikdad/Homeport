@@ -382,6 +382,17 @@
     return null;
   }
 
+  // Homeport opened through your own domain (https://home.example.com), usually
+  // from another device: apps live at https://<id>.example.com, and "open" must
+  // happen in this browser, not on the computer running Homeport.
+  const REMOTE_DOMAIN = window.location.protocol === "https:" && window.location.hostname.startsWith("home.")
+    ? window.location.hostname.slice("home.".length) : null;
+
+  /** <id>.localhost, or <id>.example.com through your domain. */
+  function namedHost(app) {
+    return app.id + "." + (REMOTE_DOMAIN || "localhost");
+  }
+
   // Local HTTPS (Settings → General): GET /api/https, refreshed on start and in Settings.
   const httpsState = { st: null };
 
@@ -402,11 +413,13 @@
     return httpsState.st;
   }
 
-  /** http://<id>.localhost:<manager port>/ — served by Homeport's proxy (https://…:<https port>/ when on). */
+  /** http://<id>.localhost:<manager port>/ — served by Homeport's proxy (https://…:<https port>/ when on;
+   *  https://<id>.example.com/ through your domain). */
   function namedUrl(app) {
+    if (REMOTE_DOMAIN) return "https://" + namedHost(app) + "/";
     if (usesHttps(app)) return "https://" + app.id + ".localhost:" + httpsState.st.port + "/";
     const port = window.location.port ? ":" + window.location.port : "";
-    return "http://" + app.id + ".localhost" + port + "/";
+    return "http://" + namedHost(app) + port + "/";
   }
 
   function appCategory(app) {
@@ -1003,6 +1016,7 @@
       if (cur) setCategoryFilter(appCategory(cur));
     });
     portLink.addEventListener("click", (e) => {
+      if (e.defaultPrevented) return; // desktop handler above already opened it
       const cur = findApp(id);
       if (cur && !isActive(cur)) {
         e.preventDefault();
@@ -1058,7 +1072,7 @@
 
     const port = appPort(app);
     if (port !== null) {
-      v.portLink.textContent = app.id + ".localhost";
+      v.portLink.textContent = namedHost(app);
       v.portLink.href = namedUrl(app);
       v.portLink.title = "Named URL — also at localhost:" + port;
       v.portLink.hidden = false;
@@ -1069,7 +1083,7 @@
     }
     v.miBrowser.disabled = port === null && !app.command;
     v.cardLink.hidden = !(port !== null && isActive(app));
-    v.cardLinkText.textContent = (usesHttps(app) ? "https://" : "") + app.id + ".localhost";
+    v.cardLinkText.textContent = (!REMOTE_DOMAIN && usesHttps(app) ? "https://" : "") + namedHost(app);
     v.cardLink.href = namedUrl(app);
     v.cardLink.title = "Open " + namedUrl(app) + " (also at localhost:" + port + ")";
     v.name.title = app.name + "\n" + app.path;
@@ -1253,6 +1267,10 @@
         pendingOpen.delete(id);
       } else if (app.port_ready) {
         pendingOpen.delete(id);
+        if (REMOTE_DOMAIN) {
+          window.open(namedUrl(app), "_blank", "noopener");
+          continue;
+        }
         request("/api/apps/" + encodeURIComponent(id) + "/open", {
           method: "POST",
           body: JSON.stringify({ target: "app" }),
@@ -1312,8 +1330,16 @@
       viaHomeport();
       return;
     }
-    const win = window.open(url, "_blank", "noopener");
-    if (!win) viaHomeport();
+    // "noopener" would make window.open return null even when the tab opened,
+    // which looked like a blocked popup and opened a second tab via Homeport.
+    // Open a blank tab, cut the opener, then navigate it instead.
+    const win = window.open("", "_blank");
+    if (win) {
+      win.opener = null;
+      win.location.href = url;
+    }
+    // through your domain a blocked tab can't fall back to a browser on the server
+    if (!win && !REMOTE_DOMAIN) viaHomeport();
   }
 
   async function openTarget(id, target) {
@@ -3731,7 +3757,7 @@
     const bits = [statusLabel(app.status || "stopped")];
     const tech = techLabel(app);
     if (tech) bits.push(tech);
-    if (appPort(app) !== null) bits.push(app.id + ".localhost");
+    if (appPort(app) !== null) bits.push(namedHost(app));
     return bits.join(" · ");
   }
 
@@ -5540,6 +5566,23 @@
     name.addEventListener("change", () => savePref("fb_owner_name", name.value.trim()));
     g2.group.appendChild(setRow("Your name", null, [name]));
     body.appendChild(g2.wrap);
+
+    const g3 = setGroup("Your domain", "Point a Cloudflare Tunnel for *.your-domain at this Homeport and put a " +
+      "Cloudflare Access login in front of it. Homeport refuses your domain without that login.");
+    const dom = el("input", "input small set-input");
+    dom.value = settings.prefs.public_domain || "";
+    dom.placeholder = "example.com";
+    dom.spellcheck = false;
+    dom.addEventListener("change", async () => {
+      const prefs = await saveSetting({ public_domain: dom.value.trim() || null });
+      dom.value = prefs.public_domain || "";
+      renderSettings();
+    });
+    const d = settings.prefs.public_domain;
+    g3.group.appendChild(setRow("Domain", d ? "Dashboard at home." + d + " · apps at <app-id>." + d
+      : "Open Homeport and every app from anywhere", [dom]));
+    if (d) g3.group.appendChild(setRow("Open dashboard", null, [setLink("home." + d, "https://home." + d + "/")]));
+    body.appendChild(g3.wrap);
   }
 
   function paneGuides(body) {

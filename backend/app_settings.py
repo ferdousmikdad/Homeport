@@ -3,7 +3,7 @@
 Stored in ``<data dir>/settings.json`` so the desktop app and every browser tab
 see the same choice (unlike localStorage, which is per browser).
 
-    GET   /api/settings  -> {ai_provider, local_model}
+    GET   /api/settings  -> {ai_provider, local_model, ..., public_domain}
     PATCH /api/settings  body: any of those keys (null clears)
     GET   /api/about     -> {data_dir, address, installed}
     POST  /api/about/open-data   open the data folder in Finder / Explorer
@@ -22,7 +22,9 @@ from . import osutil, paths
 
 router = APIRouter()
 
-DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None, "notify_comments": None, "https_default": None}
+DEFAULTS: dict = {"ai_provider": None, "local_model": None, "projects_dir": None, "check_updates": None, "notify_comments": None,
+                  "https_default": None, "public_domain": None}
+_DOMAIN = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 _lock = threading.Lock()
 
 
@@ -77,6 +79,17 @@ def _validate(key: str, value: Any) -> Any:
         if not isinstance(value, bool):
             raise HTTPException(status_code=400, detail="check_updates must be true or false")
         return value
+    if key == "public_domain":  # your own domain: home.<domain> = dashboard, <app-id>.<domain> = apps
+        if not isinstance(value, str):
+            raise HTTPException(status_code=400, detail="public_domain must be a domain name")
+        domain = re.sub(r"^https?://", "", value.strip().lower()).strip("./")
+        if domain.startswith("home."):
+            domain = domain[len("home."):]
+        if not domain:
+            return None
+        if not _DOMAIN.match(domain) or domain.endswith(".localhost"):
+            raise HTTPException(status_code=400, detail="enter a domain like example.com")
+        return domain
     if key == "projects_dir":  # where "Add from GitHub" clones repos
         if not isinstance(value, str) or not value.strip():
             raise HTTPException(status_code=400, detail="projects_dir must be a folder path")

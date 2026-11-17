@@ -5,11 +5,18 @@ An ASGI middleware in front of the dashboard that routes by Host header:
 * ``<app-id>.localhost:<manager-port>``  → the running app (named URL)
 * ``<app-id>.share.localhost``           → the app, behind a password page
   (used by protected public share links; cloudflared sends this Host)
+* ``home.<your domain>``                 → the dashboard, from anywhere
+* ``<app-id>.<your domain>``             → the running app, from anywhere
 * anything else                          → the Homeport dashboard / API
 
 Browsers and the OS resolve every ``*.localhost`` name to this computer, so
 named URLs need no hosts-file edits, DNS or accounts. HTTP is streamed both
 ways and WebSockets (dev-server live reload) are proxied too.
+
+"Your domain" (Settings → Sharing) is reached through a Cloudflare Tunnel
+(``*.<domain>`` → this port) with Cloudflare Access in front as the login.
+Requests for it that didn't pass Access are refused, so a tunnel without a
+login never exposes the dashboard.
 """
 
 from __future__ import annotations
@@ -35,6 +42,9 @@ app_exists: Optional[Callable[[str], bool]] = None
 # The page a single-file app opens on ("about.html"): "/" redirects there.
 get_entry: Optional[Callable[[str], Optional[str]]] = None
 tunnels = None  # share_routes.tunnels
+# Settings → "Your domain" (e.g. "example.com"), or None
+get_public_domain: Optional[Callable[[], Optional[str]]] = None
+DASHBOARD_LABEL = "home"  # home.<domain> is the dashboard
 
 _HOP = {
     b"connection", b"keep-alive", b"proxy-authenticate", b"proxy-authorization",
@@ -117,6 +127,16 @@ def _route(host_header: str) -> Optional[tuple]:
     return ("app", label)
 
 
+def _public_label(host_header: str, domain: Optional[str]) -> Optional[str]:
+    """The first label of a host under your domain ("" for the bare domain or
+    deeper names, which serve nothing), or None when the host isn't under it."""
+    name, _ = _split_host(host_header)
+    if not domain or (name != domain and not name.endswith("." + domain)):
+        return None
+    label = name[: -len(domain)].rstrip(".")
+    return label if "." not in label else ""
+
+
 def _token(secret: str, app_id: str) -> str:
     return hmac.new(secret.encode(), app_id.encode(), hashlib.sha256).hexdigest()
 
@@ -165,7 +185,20 @@ class HostProxyMiddleware:
             return await self.app(scope, receive, send)
         headers = {k.lower(): v for k, v in scope.get("headers") or []}
         host = headers.get(b"host", b"").decode("latin-1")
-        route = _route(host)
+        public = _public_label(host, get_public_domain() if get_public_domain else None)
+        if public is not None:
+            refusal = _public_refusal(scope, headers, host, public)
+            if refusal:
+                if scope["type"] == "http":
+                    await _send_page(send, *refusal)
+                else:
+                    await send({"type": "websocket.close", "code": 1008})
+                return
+            if public == DASHBOARD_LABEL:
+                return await self.app(scope, receive, send)
+            route = ("app", public)
+        else:
+            route = _route(host)
         if route is None:
             return await self.app(scope, receive, send)
 
@@ -192,7 +225,8 @@ class HostProxyMiddleware:
                                      "<p>Start it from the Homeport dashboard, then reload this page.</p>", 503)
                     await _send_page(send, st, body)
                 return
-            secure = scope.get("scheme") in ("https", "wss")
+            # your domain arrives through the tunnel as plain http but is https outside
+            secure = public or scope.get("scheme") in ("https", "wss")
             public_origin = ("https://" if secure else "http://") + host
 
         # feedback widget: visitors on a share with feedback on; the owner in review mode
@@ -368,7 +402,8 @@ class HostProxyMiddleware:
 
         path = scope.get("path") or ""
         method = scope.get("method") or "GET"
-        local = kind == "app"  # named URL: only reachable on this computer
+        # named URL: only reachable on this computer, or on your domain behind its login
+        local = kind == "app"
         allowed = local or share_feedback
         if not allowed:
             return await _send_json(send, 404, {"detail": "feedback is off for this link"})
@@ -526,6 +561,26 @@ class HostProxyMiddleware:
                 await upstream.close()
             except Exception:
                 pass
+
+
+def _public_refusal(scope, headers: dict, host: str, label: str) -> Optional[tuple]:
+    """(status, page) when a request for your domain must not get through, else None."""
+    if not label:
+        return _page("Not found", "<h1>Nothing here</h1>"
+                     f"<p>Open home.{html.escape(host.split(':')[0])} for the dashboard.</p>", 404)
+    # Cloudflare Access adds this header once the visitor has logged in. Without it the
+    # tunnel has no login in front, and the dashboard can run commands on this computer.
+    if not headers.get(b"cf-access-jwt-assertion"):
+        return _page("Login required", "<h1>Protect this domain first</h1>"
+                     "<p>Homeport only answers on your domain behind a Cloudflare Access login. "
+                     "Add an Access application for it, then reload.</p>", 403)
+    # The dashboard API takes no requests started by other sites (or your other apps)
+    if label == DASHBOARD_LABEL and scope["type"] == "http" \
+            and scope.get("method") not in ("GET", "HEAD", "OPTIONS"):
+        origin = headers.get(b"origin", b"").decode("latin-1")
+        if origin and origin != "https://" + host:
+            return _page("Not allowed", "<h1>Not allowed</h1><p>That request came from another site.</p>", 403)
+    return None
 
 
 def _cookies(headers: dict) -> dict:

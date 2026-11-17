@@ -459,6 +459,7 @@ async def _lifespan(_app: FastAPI):
     proxy.app_exists = lambda aid: registry.get(aid) is not None
     proxy.get_entry = lambda aid: (registry.get(aid) or {}).get("entry") or None
     proxy.tunnels = share_routes.tunnels
+    proxy.get_public_domain = lambda: app_settings.load().get("public_domain")
 
     # Autostart apps on boot
     for cfg in registry.list():
