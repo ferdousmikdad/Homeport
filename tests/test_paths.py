@@ -50,3 +50,20 @@ def test_quit_endpoint(monkeypatch):
     assert client.post("/api/quit", headers={"Origin": "https://evil.example"}).status_code == 403
     assert client.post("/api/quit", headers={"Origin": "http://localhost:7777"}).json() == {"ok": True}
     assert client.get("/api/health").json()["can_quit"] is True
+
+
+def test_restart_endpoint_remembers_running_apps(monkeypatch):
+    from backend import main
+    called = []
+    client = TestClient(main.app)
+    monkeypatch.setattr(main, "request_quit", None)
+    assert client.post("/api/restart").status_code == 501
+    assert main.restart_requested is False
+    monkeypatch.setattr(main, "request_quit", lambda: called.append(1))
+    monkeypatch.setattr(main.registry, "list", lambda: [{"id": "web"}, {"id": "api"}])
+    monkeypatch.setattr(main.pm, "is_running", lambda app_id: app_id == "web")
+    assert client.post("/api/restart", headers={"Origin": "https://evil.example"}).status_code == 403
+    assert client.post("/api/restart", headers={"Origin": "http://localhost:7777"}).json() == {"ok": True, "resume": ["web"]}
+    assert main.restart_requested is True
+    assert main._take_resume_list() == {"web"}
+    assert main._take_resume_list() == set()  # read once

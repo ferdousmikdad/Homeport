@@ -52,6 +52,10 @@ def _isolate_logs_and_command_style(tmp_path_factory, monkeypatch, request):
     monkeypatch.setattr(local_https, "_dir", lambda: https_dir)
     monkeypatch.setattr(local_https, "_trusted", None)
     monkeypatch.setattr(local_https, "_leaf", {})
+    # apps to resume after a restart: a throw-away file
+    resume_file = str(tmp_path_factory.mktemp("resume") / "resume.json")
+    monkeypatch.setattr(main, "_resume_file", lambda: resume_file)
+    monkeypatch.setattr(main, "restart_requested", False)
     # never show real desktop notifications from tests
     from backend import osutil
     if request.node.name != "test_notify_never_raises":  # that one checks the real function

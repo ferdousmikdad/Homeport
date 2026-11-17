@@ -60,6 +60,7 @@
     bulkMenu: $("bulk-menu"),
     btnStartAll: $("btn-start-all"),
     btnStopAll: $("btn-stop-all"),
+    btnStopAllTop: $("btn-stop-all-top"),
     btnTerminateAll: $("btn-terminate-all"),
     btnAdd: $("btn-add"),
 
@@ -648,6 +649,37 @@
         toast("Couldn't quit: " + err.message, "err");
       }
     }, "danger");
+  }
+
+  async function restartHomeport() {
+    showConfirm("Restart Homeport?", "Homeport stops and starts again. Apps running now start again with it.", "Restart", async () => {
+      try {
+        await request("/api/restart", { method: "POST" });
+      } catch (err) {
+        toast("Couldn't restart: " + err.message, "err");
+        return;
+      }
+      document.body.textContent = "";
+      const msg = el("div", "quit-msg", "Restarting Homeport…");
+      document.body.appendChild(msg);
+      // Reload once the old server is gone and the new one answers.
+      const began = Date.now();
+      let wentDown = false;
+      const poll = async () => {
+        try {
+          await request("/api/health");
+          if (wentDown || Date.now() - began > 8000) return window.location.reload();
+        } catch (err) {
+          wentDown = true;
+        }
+        if (Date.now() - began > 90000) {
+          msg.textContent = "Homeport didn't come back. Start it again, then reload this page.";
+          return;
+        }
+        setTimeout(poll, 700);
+      };
+      setTimeout(poll, 700);
+    });
   }
 
   function createStat(label, extraClass) {
@@ -1378,6 +1410,7 @@
   els.btnBulk.addEventListener("click", () => toggleMenu(els.btnBulk, els.bulkMenu));
   els.btnStartAll.addEventListener("click", () => bulk("/api/apps/start-all", "Started all apps"));
   els.btnStopAll.addEventListener("click", () => bulk("/api/apps/stop-all", "Stopped all apps"));
+  els.btnStopAllTop.addEventListener("click", () => bulk("/api/apps/stop-all", "Stopped all apps"));
   els.btnTerminateAll.addEventListener("click", () => {
     closeMenus();
     showConfirm(
@@ -1986,6 +2019,7 @@
     els.countRunning.textContent = String(running);
     els.countStopped.textContent = String(stopped);
     els.countCrashed.textContent = String(crashed);
+    els.btnStopAllTop.hidden = !running;
 
     const total = state.apps.length;
     const parts = [total + (total === 1 ? " app" : " apps"), running + " running"];
@@ -2786,6 +2820,7 @@
 
   $("btn-discover").addEventListener("click", openDiscover);
   $("btn-quit").addEventListener("click", () => quitHomeport());
+  $("btn-restart").addEventListener("click", () => restartHomeport());
   $("btn-cmdk").addEventListener("click", () => openPalette());
   $("disc-close").addEventListener("click", hideDiscover);
   $("disc-cancel").addEventListener("click", hideDiscover);
@@ -3859,6 +3894,7 @@
       if (mode !== state.groupBy) act(label, "layers", () => setGroupBy(mode), "group workspaces sections");
     }
     if (!$("ai-fab").hidden) act("Ask AI", "chat", () => openAi(), "assistant claude help");
+    if (canQuit) act("Restart Homeport", "restart", () => restartHomeport(), "reload reboot server");
     if (canQuit) act("Quit Homeport", "stop", () => quitHomeport(), "exit close shutdown");
     return cmds;
   }
@@ -6058,8 +6094,10 @@
     .then((h) => {
       if (h && h.can_quit) {
         canQuit = true;
-        const btn = document.getElementById("btn-quit");
-        if (btn) btn.hidden = false;
+        for (const btnId of ["btn-quit", "btn-restart"]) {
+          const btn = document.getElementById(btnId);
+          if (btn) btn.hidden = false;
+        }
       }
       if (h && h.platform && h.platform !== serverPlatform) {
         serverPlatform = h.platform;

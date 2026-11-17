@@ -113,7 +113,7 @@ def main() -> int:
     _log_to_file()
     from backend import main as homeport
     from backend import osutil
-    from launch import serve
+    from launch import restart_if_asked, serve
 
     port = int(os.environ.get("HOMEPORT_PORT", "7777"))
     server_thread = None
@@ -160,12 +160,14 @@ def main() -> int:
         osutil.open_url(url)
         if server_thread is not None:
             server_thread.join()  # until "Quit Homeport" in the dashboard
+            restart_if_asked()
         return 0
 
     # Window closed: stop Homeport (and every app it runs) if we started it.
     if server_thread is not None and homeport.request_quit is not None:
         homeport.request_quit()
         server_thread.join(timeout=15)
+        restart_if_asked()
     return 0
 
 

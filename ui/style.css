@@ -1618,6 +1618,8 @@ body.side-hidden .sidebar { display: none; }
 
 .add-btn { height: 36px; padding: 0 16px 0 12px; gap: 6px; font-weight: 600; border-radius: 999px; }
 .add-btn svg { width: 16px; height: 16px; }
+.stop-all-btn { height: 36px; padding: 0 14px 0 12px; gap: 6px; font-weight: 600; border-radius: 999px; }
+.stop-all-btn svg { width: 14px; height: 14px; }
 
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -1633,6 +1635,8 @@ body.side-hidden .sidebar { display: none; }
   .top-search .search-kbd { display: none; }
   .add-btn span { display: none; }
   .add-btn { padding: 0 10px; }
+  .stop-all-btn span { display: none; }
+  .stop-all-btn { padding: 0 11px; }
   .title-pill { display: inline-flex; }
 }
 

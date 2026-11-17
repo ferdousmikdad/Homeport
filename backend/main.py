@@ -461,9 +461,10 @@ async def _lifespan(_app: FastAPI):
     proxy.tunnels = share_routes.tunnels
     proxy.get_public_domain = lambda: app_settings.load().get("public_domain")
 
-    # Autostart apps on boot
+    # Autostart apps on boot, and the ones that were running before a restart
+    resume = _take_resume_list()
     for cfg in registry.list():
-        if cfg.get("autostart"):
+        if cfg.get("autostart") or cfg["id"] in resume:
             with contextlib.suppress(Exception):
                 await asyncio.to_thread(pm.start, cfg)
 
@@ -1358,6 +1359,8 @@ async def wordpress_import(app_id: str, request: Request) -> dict:
 
 # Set by launch.py / the desktop app: stops the server (and every app it runs).
 request_quit = None
+# Set by /api/restart before quitting: the launcher then starts Homeport again.
+restart_requested = False
 
 
 @app.get("/api/health")
@@ -1366,16 +1369,53 @@ async def health() -> dict:
             "desktop": paths.FROZEN}
 
 
-@app.post("/api/quit")
-async def quit_homeport(request: Request) -> dict:
-    """Quit Homeport (stops all apps). Only from this computer's own pages."""
+def _resume_file() -> str:
+    """Apps that were running when Homeport restarted: started again on boot."""
+    return os.path.join(paths.DATA_DIR, "resume.json")
+
+
+def _local_page_only(request: Request) -> None:
     origin = request.headers.get("origin") or ""
     if origin and not re.match(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", origin):
         raise HTTPException(status_code=403, detail="not allowed from this page")
+
+
+@app.post("/api/quit")
+async def quit_homeport(request: Request) -> dict:
+    """Quit Homeport (stops all apps). Only from this computer's own pages."""
+    _local_page_only(request)
     if request_quit is None:
         raise HTTPException(status_code=501, detail="quit isn't available in this mode — press Ctrl+C in Homeport's window")
     asyncio.get_running_loop().call_later(0.3, request_quit)
     return {"ok": True}
+
+
+@app.post("/api/restart")
+async def restart_homeport(request: Request) -> dict:
+    """Restart Homeport; the apps running now start again once it's back."""
+    global restart_requested
+    _local_page_only(request)
+    if request_quit is None:
+        raise HTTPException(status_code=501, detail="restart isn't available in this mode — stop Homeport and start it again")
+    running = [cfg["id"] for cfg in registry.list() if pm.is_running(cfg["id"])]
+    with contextlib.suppress(OSError):
+        with open(_resume_file(), "w", encoding="utf-8") as fh:
+            json.dump(running, fh)
+    restart_requested = True
+    asyncio.get_running_loop().call_later(0.3, request_quit)
+    return {"ok": True, "resume": running}
+
+
+def _take_resume_list() -> set[str]:
+    """The apps to start again after a restart (read once)."""
+    try:
+        with open(_resume_file(), encoding="utf-8") as fh:
+            ids = json.load(fh)
+    except (OSError, ValueError):
+        return set()
+    with contextlib.suppress(OSError):
+        os.remove(_resume_file())
+    return {i for i in ids if isinstance(i, str)} if isinstance(ids, list) else set()
 
 
 @app.get("/api/events")

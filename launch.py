@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 import threading
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+_ARGV0 = os.path.abspath(sys.argv[0])  # before main() changes the working folder
 
 
 def _already_running(url: str) -> bool:
@@ -67,7 +69,23 @@ def main() -> int:
 
     print(f"Homeport is running at {url}  (press Ctrl+C to stop)", flush=True)
     serve(args.port)
+    restart_if_asked(["--no-browser"])  # the open dashboard tab reconnects by itself
     return 0
+
+
+def restart_if_asked(extra_args: list[str] = ()) -> None:
+    """After "Restart Homeport" stopped the server: start this program again."""
+    from backend import main as homeport
+
+    if not homeport.restart_requested:
+        return
+    args = sys.argv[1:] + [a for a in extra_args if a not in sys.argv]
+    cmd = [sys.executable] + ([] if getattr(sys, "frozen", False) else [_ARGV0]) + args
+    print("Restarting Homeport…", flush=True)
+    if os.name == "nt":  # execv on Windows starts a new process anyway, without waiting
+        subprocess.Popen(cmd, close_fds=True)
+        os._exit(0)
+    os.execv(cmd[0], cmd)
 
 
 def serve(port: int) -> None:
