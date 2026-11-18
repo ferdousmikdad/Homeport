@@ -81,6 +81,35 @@
       .catch(() => {});
   }
 
+  // Contributors under "Open source" (best effort; hidden when unavailable)
+  const contrib = document.querySelector("[data-contributors]");
+  if (contrib) {
+    fetch("https://api.github.com/repos/ferdousmikdad/Homeport/contributors?per_page=24", { headers: { Accept: "application/vnd.github+json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((people) => {
+        if (!Array.isArray(people)) return;
+        const list = contrib.querySelector(".contributors-list");
+        people.filter((p) => p && p.type === "User" && p.login && p.avatar_url).forEach((p) => {
+          const a = document.createElement("a");
+          a.href = "https://github.com/" + encodeURIComponent(p.login);
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.title = p.login;
+          a.setAttribute("aria-label", p.login);
+          const img = document.createElement("img");
+          img.src = p.avatar_url + (p.avatar_url.includes("?") ? "&" : "?") + "s=80";
+          img.alt = "";
+          img.width = 40;
+          img.height = 40;
+          img.loading = "lazy";
+          a.appendChild(img);
+          list.appendChild(a);
+        });
+        if (list.children.length) contrib.hidden = false;
+      })
+      .catch(() => {});
+  }
+
   // ---- Smart download button: pick the installer for this device ----
   (function smartDownload() {
     const base = "https://github.com/ferdousmikdad/Homeport/releases/latest/download/";
@@ -216,6 +245,36 @@
         line(svg, 200, 151, 200, 172);
         for (let i = 0; i < 5; i++) line(svg, 60 + i * 8, 150, 100, 150 - i * 6 + 12, "dim");
         for (let i = 0; i < 5; i++) line(svg, 300, 150 - i * 6 + 12, 340 - i * 8, 150, "dim");
+      },
+      // Your domain: a globe with the dashboard and apps on it
+      globe(svg) {
+        mk(svg, "circle", { cx: 200, cy: 110, r: 80, class: "ln" });
+        mk(svg, "ellipse", { cx: 200, cy: 110, rx: 34, ry: 80, class: "ln dim" });
+        line(svg, 120, 110, 280, 110, "dim");
+        mk(svg, "path", { d: "M 131 70 Q 200 82 269 70", class: "ln dim" });
+        mk(svg, "path", { d: "M 131 150 Q 200 138 269 150", class: "ln dim" });
+        [[60, 60], [340, 76], [330, 168]].forEach(([x, y], i) => {
+          line(svg, x, y, 200 + (x < 200 ? -62 : 62), y < 110 ? y + 14 : y - 14, "dim");
+          mk(svg, "circle", { cx: x, cy: y, r: 5, class: "dot" + (i === 2 ? " dim" : "") });
+        });
+      },
+      // WordPress: stacked layers (files, config, database)
+      layers(svg) {
+        [0, 1, 2].forEach((i) => {
+          const y = 60 + i * 42;
+          mk(svg, "path", { d: `M 200 ${y} L 300 ${y + 30} L 200 ${y + 60} L 100 ${y + 30} Z`, class: "ln" + (i === 1 ? " dim" : "") });
+        });
+        mk(svg, "circle", { cx: 200, cy: 90, r: 4, class: "dot" });
+      },
+      // Updates: a bell with a small notice dot
+      bell(svg) {
+        mk(svg, "path", { d: "M 150 160 L 150 105 A 50 50 0 0 1 250 105 L 250 160 L 265 175 L 135 175 Z", class: "ln" });
+        mk(svg, "path", { d: "M 185 185 A 15 15 0 0 0 215 185", class: "ln" });
+        mk(svg, "circle", { cx: 252, cy: 62, r: 9, class: "dot" });
+        for (let i = 0; i < 3; i++) {
+          mk(svg, "path", { d: `M ${118 - i * 16} ${80 - i * 4} A ${50 + i * 16} ${50 + i * 16} 0 0 0 ${118 - i * 16} ${150 + i * 4}`, class: "ln dim" });
+          mk(svg, "path", { d: `M ${282 + i * 16} ${80 - i * 4} A ${50 + i * 16} ${50 + i * 16} 0 0 1 ${282 + i * 16} ${150 + i * 4}`, class: "ln dim" });
+        }
       },
       // CPU & memory: a live trace
       pulse(svg) {

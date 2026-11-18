@@ -196,6 +196,7 @@
           <p>Pick a folder — or a whole <code>~/Projects</code> directory — and Homeport detects the framework, package manager, virtualenv and a free port.</p>
           <ul>
             <li>Installs missing dependencies on first start</li>
+            <li>A folder, a folder of projects, or a single <code>.html</code>, <code>.php</code>, <code>.js</code> or <code>.py</code> file</li>
             <li>Named URLs: <code>shop.localhost:7777</code> instead of port numbers</li>
             <li>Workspaces start API → frontend → worker in order</li>
           </ul>
@@ -220,6 +221,7 @@
           <p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl K</kbd>) and type. Fuzzy search across every app and action — start, stop, logs, share, open on phone, add a database.</p>
           <ul>
             <li>Context-aware: running apps offer Stop, crashed ones offer “Why?”</li>
+            <li>Stop all, Restart Homeport and Getting started are a few letters away</li>
             <li>Fully keyboard-driven, updates live</li>
           </ul>
         </div>
@@ -240,6 +242,7 @@
           <ul>
             <li>Password page before anything reaches your app</li>
             <li>Auto-stops after 15 min – 24 h, or when the app stops</li>
+            <li>Or use your own domain: <code>shop.example.com</code>, behind a Cloudflare Access login</li>
           </ul>
         </div>
         <div class="visual art compact v3">
@@ -260,6 +263,7 @@
             <li>Pins stay on their spot while the page scrolls</li>
             <li>Threads with replies; you resolve them in your review view</li>
             <li>See the site with comments — or without</li>
+            <li>Turn a comment into a GitHub issue; get a desktop notification for new ones</li>
           </ul>
         </div>
         <div class="visual art compact v2">
@@ -287,6 +291,7 @@
           <p><strong>Connect GitHub</strong> once, pick one of your repos, and Homeport clones it, works out how to run it and starts it. Cards show whether the last build passed.</p>
           <ul>
             <li>CI result on every card: <code>main ✓</code>, <code>main ✗</code></li>
+            <li>Preview a pull request on its own port, without touching your copy</li>
             <li>Open on GitHub and pull requests from the card's menu</li>
             <li>Private repos too — your login stays on your computer</li>
           </ul>
@@ -407,8 +412,11 @@
         <div class="tile reveal"><div class="illus" data-art="branches"></div><h3>Git on every card</h3><p>Branch, CI result, commits to pull — and Pull &amp; restart.</p><a class="more-link" href="/docs#git">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="burst"></div><h3>Project discovery</h3><p>Scan a folder and add every project inside in one click.</p><a class="more-link" href="/docs#discover">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="bars"></div><h3>Logs that stay</h3><p>Persistent, searchable logs per app — even after restarts.</p><a class="more-link" href="/docs#logs">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-        <div class="tile reveal"><div class="illus" data-art="rings"></div><h3>Auto-restart &amp; autostart</h3><p>Bring crashed apps back, and start Homeport at login on any OS.</p><a class="more-link" href="/docs#autostart">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+        <div class="tile reveal"><div class="illus" data-art="rings"></div><h3>Auto-restart &amp; autostart</h3><p>Bring crashed apps back, start Homeport at login, and restart Homeport itself in one click.</p><a class="more-link" href="/docs#autostart">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
         <div class="tile reveal"><div class="illus" data-art="pulse"></div><h3>Live CPU &amp; memory</h3><p>See what each app costs your laptop, updated every second.</p><a class="more-link" href="/docs#logs">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+        <div class="tile reveal"><div class="illus" data-art="globe"></div><h3>Your own domain</h3><p>Open the dashboard at <code>home.example.com</code> and apps at <code>shop.example.com</code>, behind a login.</p><a class="more-link" href="/docs#your-domain">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+        <div class="tile reveal"><div class="illus" data-art="layers"></div><h3>WordPress in one click</h3><p>Database, <code>wp-config.php</code> and your <code>.sql</code> backup set up for you.</p><a class="more-link" href="/docs#wordpress">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+        <div class="tile reveal"><div class="illus" data-art="bell"></div><h3>Always up to date</h3><p>A notice when a new version is out, with what's new and a one-click download.</p><a class="more-link" href="/docs#settings">Learn more <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
       </div>
     </div>
   </section>
@@ -434,6 +442,9 @@
             <tr><td>Phone preview with QR</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Crash explanations &amp; fixes</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Comments on shared pages</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Your own domain, behind a login</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td>Often paid</td><td class="no">—</td></tr>
+            <tr><td>Local HTTPS for every app</td><td class="us"><span class="yes">✓</span></td><td>Partly</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Pull request previews</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Clone &amp; run from GitHub</td><td class="us"><span class="yes">✓</span></td><td>Partly</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>AI fixes, with an offline option</td><td class="us"><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Databases as one-click apps</td><td class="us"><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td class="no">—</td><td class="no">—</td></tr>
@@ -456,6 +467,10 @@
           <div class="cta-row">
             <a class="btn primary" href="https://github.com/ferdousmikdad/Homeport" target="_blank" rel="noopener">Star on GitHub <span class="count" data-stars></span></a>
             <a class="circle-link" href="https://github.com/ferdousmikdad/Homeport/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>Read the contributing guide</a>
+          </div>
+          <div class="contributors" data-contributors hidden>
+            <span class="contributors-label">Built by</span>
+            <div class="contributors-list"></div>
           </div>
         </div>
       </div>
@@ -483,9 +498,11 @@
         <details><summary>Do I need to install Python or anything else first?</summary><p>No. The launcher uses Python if you have it; if not, it downloads a private copy into the Homeport folder — no admin rights, nothing system-wide. Your own projects still use their own tools (Node, PHP, …).</p></details>
         <details><summary>Which systems does it run on?</summary><p>macOS, Windows and Linux. Double-click <code>run.command</code> on macOS, <code>run.bat</code> on Windows, or run <code>./run.sh</code> on Linux.</p></details>
         <details><summary>Can other people on my network control my apps?</summary><p>No. The dashboard only listens on your own computer. Phone preview exposes just the one app you choose, on your local network, until you turn it off.</p></details>
+        <details><summary>Can I open Homeport when I'm away from my computer?</summary><p>Yes, with your own domain. Point a Cloudflare Tunnel at Homeport and put a Cloudflare Access login in front of it: the dashboard opens at <code>home.example.com</code> and apps at <code>&lt;app&gt;.example.com</code>. Homeport refuses your domain until that login is in place.</p></details>
         <details><summary>How do share links stay safe?</summary><p>You can add a password (only a salted hash is kept) and an expiry. Links also close when you stop sharing, stop the app or quit Homeport.</p></details>
         <details><summary>Who can see comments on a shared link?</summary><p>Anyone with the link sees the open comments, like in a shared Figma file — so only turn feedback on for people who may see each other's notes, and add a password if needed. Comments are stored in Homeport on your computer, and resolved ones are hidden from visitors.</p></details>
-        <details><summary>Do I need a GitHub account or an AI subscription?</summary><p>No. Both are optional. GitHub adds one-click cloning and CI results; your login stays on your computer. The AI can be Claude Code, or a free local model that runs offline with Ollama — nothing you ask leaves your computer.</p></details>
+        <details><summary>Do I need a GitHub account or an AI subscription?</summary><p>No. Both are optional. GitHub adds one-click cloning and CI results; your login stays on your computer. The AI can be Claude Code, Google Antigravity (Gemini) with your own account, or a free local model that runs offline with Ollama — then nothing you ask leaves your computer.</p></details>
+        <details><summary>Homeport got stuck. What do I do?</summary><p>Click <strong>Restart</strong> in the top bar, next to Add app — or press <kbd>⌘K</kbd> and type “restart”. Homeport stops and starts again, brings back the apps that were running, and reloads the page by itself.</p></details>
         <details><summary>My framework isn't detected. What now?</summary><p>Type your start command once — Homeport remembers it. Or add a small JSON recipe so it's detected for everyone; see the docs.</p></details>
       </div>
     </div>

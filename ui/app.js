@@ -2822,6 +2822,7 @@
   $("btn-discover").addEventListener("click", openDiscover);
   $("btn-quit").addEventListener("click", () => quitHomeport());
   $("btn-restart").addEventListener("click", () => restartHomeport());
+  $("btn-restart-top").addEventListener("click", () => restartHomeport());
   $("btn-cmdk").addEventListener("click", () => openPalette());
   $("disc-close").addEventListener("click", hideDiscover);
   $("disc-cancel").addEventListener("click", hideDiscover);
@@ -6100,6 +6101,7 @@
       if (h && h.can_restart) {
         canRestart = true;
         $("btn-restart").hidden = false;
+        $("btn-restart-top").hidden = false;
       }
       if (h && h.platform && h.platform !== serverPlatform) {
         serverPlatform = h.platform;
