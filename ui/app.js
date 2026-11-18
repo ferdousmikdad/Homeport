@@ -2932,6 +2932,123 @@
   $("svc-close").addEventListener("click", hideServices);
 
   /* ------------------------------------------------------------------ */
+  /* Ports in use                                                        */
+  /* ------------------------------------------------------------------ */
+
+  // Programs that come with the OS and listen all the time (AirPlay, sharing…):
+  // hidden unless "Show system programs" is ticked.
+  const SYSTEM_PROGRAMS = /^(ControlCe|ControlCenter|rapportd|sharingd|launchd|mDNSResponder|UserEventAgent|identityservicesd|remoted|AirPlayXPCHelper|svchost\.exe|System|lsass\.exe|wininit\.exe|services\.exe|spoolsv\.exe|systemd.*|cupsd|sshd|avahi-daemon)$/;
+  const ports = { rows: [] };
+
+  async function openPorts() {
+    $("ports-backdrop").hidden = false;
+    await loadPorts();
+    $("ports-filter").focus();
+  }
+
+  function hidePorts() {
+    $("ports-backdrop").hidden = true;
+  }
+
+  async function loadPorts() {
+    const list = $("ports-list");
+    if (!ports.rows.length) {
+      list.textContent = "";
+      list.appendChild(el("p", "hint", "Looking for ports in use…"));
+    }
+    try {
+      ports.rows = (await request("/api/ports")).ports;
+    } catch (err) {
+      list.textContent = "";
+      list.appendChild(el("p", "hint", "Couldn't list ports: " + err.message));
+      return;
+    }
+    renderPorts();
+  }
+
+  function renderPorts() {
+    const list = $("ports-list");
+    const q = $("ports-filter").value.trim().toLowerCase();
+    const showSystem = $("ports-all").checked;
+    // Ports another app wants first, then your apps, then everything else by port.
+    const rank = (r) => (r.owner === "outside" && r.wanted_by.length ? 0 : r.owner === "app" ? 1 : r.owner === "homeport" ? 3 : 2);
+    const rows = ports.rows
+      .filter((r) => showSystem || r.owner !== "outside" || r.wanted_by.length || !SYSTEM_PROGRAMS.test(r.name || ""))
+      .filter((r) => !q || [r.port, r.pid, r.name, r.command, r.cwd, r.app_name].some((v) => String(v || "").toLowerCase().includes(q)))
+      .sort((a, b) => rank(a) - rank(b) || a.port - b.port);
+    list.textContent = "";
+    if (!rows.length) {
+      list.appendChild(el("p", "hint", q ? "Nothing matches." : "No ports in use."));
+      return;
+    }
+    for (const r of rows) list.appendChild(portRow(r));
+  }
+
+  function portRow(r) {
+    const conflict = r.owner === "outside" && r.wanted_by.length;
+    const row = el("div", "port-item" + (conflict ? " conflict" : ""));
+    row.appendChild(el("span", "port-num", ":" + r.port));
+    const text = el("div", "port-text");
+    const title = el("strong", null, r.owner === "app" ? r.app_name : r.owner === "homeport" ? "Homeport" : r.name || "Unknown program");
+    title.appendChild(el("span", "port-chip " + r.owner, r.owner === "app" ? "App" : r.owner === "homeport" ? "Homeport" : "Outside Homeport"));
+    text.appendChild(title);
+    const bits = ["PID " + r.pid];
+    if (r.owner === "app" && r.name) bits.push(r.name);
+    if (r.started) bits.push("started " + timeAgo(r.started));
+    if (r.cwd && r.cwd !== "/") bits.push(r.cwd);
+    if (!r.address.some((a) => a === "127.0.0.1" || a === "::1" || a === "localhost")) bits.push("open to your network");
+    text.appendChild(el("span", "muted", bits.join(" · ")));
+    if (r.command) {
+      const cmd = el("span", "port-cmd", r.command);
+      cmd.title = r.command;
+      text.appendChild(cmd);
+    }
+    if (conflict) {
+      const names = r.wanted_by.map((a) => a.name).join(", ");
+      text.appendChild(el("span", "port-warn", "Port of " + names + " — this program is in the way. Stop it, then start " + names + "."));
+    }
+    row.appendChild(text);
+
+    const actions = el("div", "port-actions");
+    const open = button("btn small ghost", "Open");
+    open.title = "Open http://localhost:" + r.port;
+    open.addEventListener("click", () => window.open("http://localhost:" + r.port + "/", "_blank", "noopener"));
+    actions.appendChild(open);
+    if (r.owner !== "homeport") {
+      const stop = button("btn small" + (conflict ? " danger" : ""), r.owner === "app" ? "Stop app" : "Stop");
+      stop.addEventListener("click", () => stopPort(r, stop));
+      actions.appendChild(stop);
+    }
+    row.appendChild(actions);
+    return row;
+  }
+
+  function stopPort(r, btn) {
+    const who = r.owner === "app" ? "“" + r.app_name + "”" : (r.name || "this program") + " (PID " + r.pid + ")";
+    const msg = r.owner === "app"
+      ? "Homeport stops the app, like its Stop button."
+      : "Homeport asks it to quit, then forces it after a few seconds. Unsaved work in that program is lost." +
+        (r.cwd && r.cwd !== "/" ? " Its folder: " + r.cwd + "." : "");
+    showConfirm("Stop " + who + " on port " + r.port + "?", msg, "Stop", async () => {
+      btn.disabled = true;
+      btn.textContent = "Stopping…";
+      try {
+        await request("/api/ports/" + r.port + "/stop?pid=" + r.pid, { method: "POST" });
+        toast("Stopped " + who + " — port " + r.port + " is free", "ok");
+      } catch (err) {
+        toast("Couldn't stop it: " + err.message, "err");
+      }
+      await loadPorts();
+    }, "danger");
+  }
+
+  $("btn-ports").addEventListener("click", openPorts);
+  $("ports-close").addEventListener("click", hidePorts);
+  $("ports-refresh").addEventListener("click", loadPorts);
+  $("ports-filter").addEventListener("input", renderPorts);
+  $("ports-all").addEventListener("change", renderPorts);
+
+  /* ------------------------------------------------------------------ */
   /* WordPress mode                                                      */
   /* ------------------------------------------------------------------ */
 
@@ -3896,6 +4013,7 @@
       if (mode !== state.groupBy) act(label, "layers", () => setGroupBy(mode), "group workspaces sections");
     }
     if (!$("ai-fab").hidden) act("Ask AI", "chat", () => openAi(), "assistant claude help");
+    act("Ports in use", "list", () => openPorts(), "port kill process lsof busy taken");
     if (canRestart) act("Restart Homeport", "restart", () => restartHomeport(), "reload reboot server");
     if (canQuit) act("Quit Homeport", "stop", () => quitHomeport(), "exit close shutdown");
     return cmds;
@@ -4040,6 +4158,7 @@
       else if (!$("diag-backdrop").hidden) hideDiag();
       else if (!$("disc-backdrop").hidden) hideDiscover();
       else if (!$("svc-backdrop").hidden) hideServices();
+      else if (!$("ports-backdrop").hidden) hidePorts();
       else if (!$("settings-backdrop").hidden) hideSettings();
       else if (!$("fb-backdrop").hidden) hideFeedback();
       else if (!$("gh-backdrop").hidden) hideGitHub();

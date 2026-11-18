@@ -1719,6 +1719,28 @@ body.side-hidden .sidebar { display: none; }
 
 /* Databases & services dialog */
 .svc-dialog { width: min(560px, 100%); }
+.ports-dialog { width: min(760px, 100%); height: min(680px, calc(100vh - 32px)); }
+.ports-dialog .form-body { flex: 1; min-height: 0; }
+.ports-dialog .form-body > .hint, .ports-dialog .input-group { flex-shrink: 0; }
+.ports-dialog .input-group { align-items: center; }
+.ports-dialog .input-group .check { white-space: nowrap; }
+.ports-list { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; }
+.port-item { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--panel-line); border-radius: 16px; }
+.port-item.conflict { border-color: var(--tint-red-line); background: var(--tint-red); }
+.port-num { min-width: 64px; font-family: var(--mono); font-size: 15px; font-weight: 600; }
+.port-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.port-text strong { font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.port-text .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.port-cmd { font-family: var(--mono); font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.port-warn { font-size: 12px; color: var(--red); }
+.port-chip { padding: 1px 8px; border-radius: 999px; background: var(--surface-2); font-size: 11px; font-weight: 500; color: var(--text-3); }
+.port-chip.app { background: var(--tint-green); color: var(--green); }
+.port-chip.homeport { background: var(--tint-blue); color: var(--accent); }
+.port-actions { display: flex; gap: 6px; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .ports-dialog .input-group { flex-wrap: wrap; }
+  .port-item { flex-wrap: wrap; }
+}
 .svc-list { display: flex; flex-direction: column; gap: 8px; }
 .svc-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--panel-line); border-radius: 16px; }
 .svc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

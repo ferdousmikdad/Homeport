@@ -179,6 +179,50 @@ def listening_pids(port: int) -> list:
     return pids
 
 
+def listening_sockets() -> list:
+    """Every TCP port something listens on: [{port, pid, address}], sorted by port.
+
+    Same split as :func:`listening_pids`: ``lsof`` where it exists (macOS hides
+    other processes' sockets from psutil), psutil otherwise. Without admin
+    rights only your own programs show on macOS and Linux."""
+    found: dict = {}
+
+    def add(port, pid, address):
+        if port and pid:
+            found.setdefault((int(port), int(pid)), set()).add(address)
+
+    lsof = None if IS_WINDOWS else shutil.which("lsof")
+    if lsof:
+        try:
+            out = subprocess.check_output(
+                [lsof, "-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pn"],
+                stderr=subprocess.DEVNULL, text=True, timeout=5,
+            )
+            pid = None
+            for line in out.splitlines():
+                if line.startswith("p") and line[1:].isdigit():
+                    pid = int(line[1:])
+                elif line.startswith("n") and pid:
+                    host, _, port = line[1:].rpartition(":")
+                    if port.isdigit():
+                        add(port, pid, host.strip("[]") or "*")
+            return _socket_rows(found)
+        except (subprocess.SubprocessError, OSError):
+            found.clear()
+    try:
+        for conn in psutil.net_connections(kind="tcp"):
+            if conn.status == psutil.CONN_LISTEN and conn.laddr and conn.pid:
+                add(conn.laddr.port, conn.pid, conn.laddr.ip or "*")
+    except (psutil.AccessDenied, OSError):
+        pass
+    return _socket_rows(found)
+
+
+def _socket_rows(found: dict) -> list:
+    return [{"port": port, "pid": pid, "address": sorted(addrs)}
+            for (port, pid), addrs in sorted(found.items())]
+
+
 # ---------------------------------------------------------------------------
 # desktop integration
 # ---------------------------------------------------------------------------

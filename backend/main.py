@@ -750,6 +750,79 @@ def _stop_port_owner(pid: int, port: int, timeout: float = 5.0) -> None:
         time.sleep(0.05)
 
 
+def _port_list() -> list:
+    """Every listening port on this computer, with who holds it: Homeport,
+    one of its apps, or an outside program (and which app wanted that port)."""
+    import psutil
+
+    owners: dict = {}  # pid -> app config, for every process of a running app
+    wanted: dict = {}  # port -> apps set up for it
+    for cfg in registry.list():
+        state = _states.get(cfg["id"]) or {}
+        for port in {cfg.get("port"), state.get("port"), state.get("detected_port")}:
+            if port:
+                wanted.setdefault(int(port), []).append(cfg)
+        pid = pm.pid(cfg["id"])
+        if pid:
+            for p in monitor._tree_pids(pid):
+                owners[p] = cfg
+    homeport = set(monitor._tree_pids(os.getpid())) - set(owners)
+
+    rows = []
+    for sock in osutil.listening_sockets():
+        pid = sock["pid"]
+        row = {**sock, "name": None, "command": None, "cwd": None, "started": None, "owner": "outside",
+               "app_id": None, "app_name": None, "wanted_by": []}
+        try:
+            proc = psutil.Process(pid)
+            row["name"] = proc.name()
+            row["started"] = proc.create_time()
+            row["command"] = " ".join(proc.cmdline()) or row["name"]
+            row["cwd"] = proc.cwd()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
+            pass
+        if pid in homeport:
+            row["owner"] = "homeport"
+        elif pid in owners:
+            row.update(owner="app", app_id=owners[pid]["id"], app_name=owners[pid].get("name") or owners[pid]["id"])
+        row["wanted_by"] = [{"id": c["id"], "name": c.get("name") or c["id"]}
+                            for c in wanted.get(sock["port"], []) if c["id"] != row["app_id"]]
+        rows.append(row)
+    return rows
+
+
+@app.get("/api/ports")
+async def list_ports() -> dict:
+    """Ports in use on this computer, inside and outside Homeport."""
+    return {"ports": await asyncio.to_thread(_port_list)}
+
+
+@app.post("/api/ports/{port}/stop")
+async def stop_port(port: int, request: Request, pid: int = Query(...)) -> dict:
+    """Stop what holds ``port``: the app, if it's one of Homeport's, else that program.
+
+    ``pid`` must still be the one holding the port (what the list showed), so a
+    program that took the port over since is never stopped by surprise."""
+    _local_page_only(request)
+    row = next((r for r in await asyncio.to_thread(_port_list)
+                if r["port"] == port and r["pid"] == pid), None)
+    if row is None:
+        raise HTTPException(status_code=409, detail="that program no longer holds this port — refresh the list")
+    if row["owner"] == "homeport":
+        raise HTTPException(status_code=400, detail="that's Homeport itself — use Restart instead")
+    if row["owner"] == "app":
+        await stop_app(row["app_id"])
+        return {"ok": True, "stopped": "app", "app_id": row["app_id"]}
+    try:
+        await asyncio.to_thread(_stop_port_owner, pid, port)
+    except Exception as exc:  # noqa: BLE001 — report, don't crash the request
+        raise HTTPException(status_code=500, detail=f"couldn't stop it: {exc}") from None
+    if any(r["port"] == port and r["pid"] == pid for r in await asyncio.to_thread(_port_list)):
+        raise HTTPException(status_code=403, detail="it's still running — it may belong to another user or the system")
+    _broadcast()
+    return {"ok": True, "stopped": "program"}
+
+
 @app.post("/api/apps/{app_id}/start")
 async def start_app(app_id: str, kill_conflict: int = Query(default=0)) -> dict:
     cfg = _cfg_or_404(app_id)

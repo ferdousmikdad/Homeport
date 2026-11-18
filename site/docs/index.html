@@ -79,6 +79,7 @@
     <a href="#workspaces">Workspaces &amp; grouping</a>
     <a href="#https">Local HTTPS</a>
     <a href="#logs">Logs &amp; restarts</a>
+    <a href="#ports">Ports in use</a>
     <a href="#git">Git on cards</a>
     <a href="#github">GitHub</a>
     <a href="#team-setup">Team setup (homeport.json)</a>
@@ -188,6 +189,15 @@ cd Homeport
     <p><strong>Stop all</strong> appears next to <strong>+ Add app</strong> whenever an app is running.</p>
     <p><strong>Restart Homeport.</strong> If Homeport itself gets stuck, click <strong>Restart</strong> in the top bar, next to <strong>+ Add app</strong> (also in the sidebar and <code>⌘K</code> → <em>Restart Homeport</em>). Homeport stops cleanly, starts again, starts the apps that were running, and the page reloads by itself once it's back. It works in the desktop app, from source, and with start at login.</p>
 
+    <h2 id="ports">Ports in use</h2>
+    <p>Sidebar → <strong>Ports in use</strong> (or <code>⌘K</code> → “ports”) lists every port a program on your computer is listening on — Homeport itself, your apps, and programs outside Homeport, such as an old copy of an app started from a terminal.</p>
+    <ul>
+      <li>Each row shows the port, the program and its PID, its folder, when it started, the command, and whether it's open to your network.</li>
+      <li>When a program outside Homeport holds the port one of your apps is set up for, the row is marked red at the top: <strong>Stop</strong> it, then start your app.</li>
+      <li><strong>Stop</strong> asks the program to quit and forces it after a few seconds; on one of your apps it's <strong>Stop app</strong>, like the card's Stop. Homeport itself can't be stopped here — use <strong>Restart</strong>.</li>
+      <li><strong>Open</strong> opens <code>http://localhost:&lt;port&gt;</code>. Filter by port, program or folder; programs that come with the system (AirPlay, sharing, …) are hidden unless you tick <strong>Show system programs</strong>.</li>
+    </ul>
+    <div class="note">On macOS and Linux only your own programs are listed and can be stopped; ones started by another user or the system need admin rights.</div>
     <h2 id="git">Git on cards</h2>
     <p>Cards show the branch, uncommitted changes (<code>●2</code>) and commits to pull (<code>↓1</code>). <strong>••</strong> → <strong>Pull &amp; restart</strong> runs <code>git pull --ff-only</code> — it never merges or overwrites your work — and restarts the app if it was running. With <a href="#github">GitHub connected</a>, the branch also shows the CI result of its latest commit.</p>
 
@@ -343,7 +353,7 @@ DATABASE_URL=postgresql://postgres@127.0.0.1:5433/postgres</code></pre>
     <h3>Named URLs don't open in Safari</h3>
     <p>Use <code>http://localhost:&lt;port&gt;</code> from the card, or another browser; some older Safari versions don't resolve <code>*.localhost</code>.</p>
     <h3>“Port 8000 is used by …”</h3>
-    <p>Another program holds the port. Use <strong>Kill &amp; start</strong> (it shows exactly which process first) or change the port in <strong>Edit</strong>.</p>
+    <p>Another program holds the port. Use <strong>Kill &amp; start</strong> (it shows exactly which process first), stop it from <a href="#ports">Ports in use</a>, or change the port in <strong>Edit</strong>.</p>
     <h3>Windows: “Python was not found”</h3>
     <p>Just run <code>run.bat</code> again — it downloads a private Python automatically. If your network blocks GitHub downloads, install Python from python.org and tick “Add python.exe to PATH”.</p>
 
