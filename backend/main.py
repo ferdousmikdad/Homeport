@@ -17,7 +17,9 @@ import contextlib
 import json
 import os
 import re
+import signal
 import subprocess
+import sys
 import tempfile
 import time
 from collections import deque
@@ -1366,7 +1368,7 @@ restart_requested = False
 @app.get("/api/health")
 async def health() -> dict:
     return {"ok": True, "platform": osutil.platform_name(), "can_quit": request_quit is not None,
-            "desktop": paths.FROZEN}
+            "can_restart": True, "desktop": paths.FROZEN}
 
 
 def _resume_file() -> str:
@@ -1395,15 +1397,61 @@ async def restart_homeport(request: Request) -> dict:
     """Restart Homeport; the apps running now start again once it's back."""
     global restart_requested
     _local_page_only(request)
-    if request_quit is None:
-        raise HTTPException(status_code=501, detail="restart isn't available in this mode — stop Homeport and start it again")
     running = [cfg["id"] for cfg in registry.list() if pm.is_running(cfg["id"])]
     with contextlib.suppress(OSError):
         with open(_resume_file(), "w", encoding="utf-8") as fh:
             json.dump(running, fh)
-    restart_requested = True
-    asyncio.get_running_loop().call_later(0.3, request_quit)
+    if request_quit is not None:  # launch.py / the desktop app start it again
+        restart_requested = True
+        asyncio.get_running_loop().call_later(0.3, request_quit)
+    else:  # plain uvicorn, e.g. the login service
+        asyncio.get_running_loop().call_later(0.3, _restart_plain_server)
     return {"ok": True, "resume": running}
+
+
+def _restart_plain_server() -> None:
+    """Restart a server started straight with uvicorn (no launcher to ask).
+
+    It stops the way Ctrl+C would (apps stop too). The macOS login service
+    (KeepAlive) starts it again by itself; otherwise a small helper waits for
+    this process to end and runs the same command again."""
+    if "localhostmanager" not in os.environ.get("XPC_SERVICE_NAME", ""):
+        log = os.path.join(paths.DATA_DIR, "logs", "server.log")
+        os.makedirs(os.path.dirname(log), exist_ok=True)
+        flags = {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP} \
+            if os.name == "nt" else {"start_new_session": True}
+        # orig_argv (3.10+) keeps "-m uvicorn …"; its [0] can be the real interpreter
+        # behind a venv on macOS, so run this venv's Python instead
+        cmd = [sys.executable, *(getattr(sys, "orig_argv", None) or [None, *sys.argv])[1:]]
+        subprocess.Popen([sys.executable, "-c", _RELAUNCHER, str(os.getpid()), log, *cmd],
+                         cwd=os.getcwd(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True, **flags)
+    signal.raise_signal(signal.SIGINT if os.name == "nt" else signal.SIGTERM)
+
+
+# Runs in its own process: wait for the old server to end, then start it again.
+_RELAUNCHER = """
+import os, subprocess, sys, time
+pid, log, cmd = int(sys.argv[1]), sys.argv[2], sys.argv[3:]
+def alive():
+    if os.name == "nt":
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True).stdout
+        return str(pid) in out
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        pass
+    return True
+for _ in range(600):
+    if not alive():
+        break
+    time.sleep(0.1)
+with open(log, "ab") as out:
+    flags = {"creationflags": 0x00000008 | 0x00000200} if os.name == "nt" else {"start_new_session": True}
+    subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=out, stderr=out, close_fds=True, **flags)
+"""
 
 
 def _take_resume_list() -> set[str]:

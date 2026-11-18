@@ -56,12 +56,16 @@ def test_restart_endpoint_remembers_running_apps(monkeypatch):
     from backend import main
     called = []
     client = TestClient(main.app)
-    monkeypatch.setattr(main, "request_quit", None)
-    assert client.post("/api/restart").status_code == 501
-    assert main.restart_requested is False
-    monkeypatch.setattr(main, "request_quit", lambda: called.append(1))
     monkeypatch.setattr(main.registry, "list", lambda: [{"id": "web"}, {"id": "api"}])
     monkeypatch.setattr(main.pm, "is_running", lambda app_id: app_id == "web")
+    # plain uvicorn (no launcher): restarts itself instead of asking the launcher
+    monkeypatch.setattr(main, "request_quit", None)
+    monkeypatch.setattr(main, "_restart_plain_server", lambda: called.append("plain"))
+    assert client.get("/api/health").json()["can_restart"] is True
+    assert client.post("/api/restart").json() == {"ok": True, "resume": ["web"]}
+    assert main.restart_requested is False
+    assert main._take_resume_list() == {"web"}
+    monkeypatch.setattr(main, "request_quit", lambda: called.append(1))
     assert client.post("/api/restart", headers={"Origin": "https://evil.example"}).status_code == 403
     assert client.post("/api/restart", headers={"Origin": "http://localhost:7777"}).json() == {"ok": True, "resume": ["web"]}
     assert main.restart_requested is True

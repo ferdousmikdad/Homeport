@@ -637,6 +637,7 @@
   const FOLDER_LABEL = { windows: "Open in Explorer", linux: "Open folder", mac: "Open in Finder" };
   let serverPlatform = "mac";
   let canQuit = false;
+  let canRestart = false;
 
   async function quitHomeport() {
     showConfirm("Quit Homeport?", "This stops Homeport and every app it's running.", "Quit", async () => {
@@ -3894,7 +3895,7 @@
       if (mode !== state.groupBy) act(label, "layers", () => setGroupBy(mode), "group workspaces sections");
     }
     if (!$("ai-fab").hidden) act("Ask AI", "chat", () => openAi(), "assistant claude help");
-    if (canQuit) act("Restart Homeport", "restart", () => restartHomeport(), "reload reboot server");
+    if (canRestart) act("Restart Homeport", "restart", () => restartHomeport(), "reload reboot server");
     if (canQuit) act("Quit Homeport", "stop", () => quitHomeport(), "exit close shutdown");
     return cmds;
   }
@@ -6094,10 +6095,11 @@
     .then((h) => {
       if (h && h.can_quit) {
         canQuit = true;
-        for (const btnId of ["btn-quit", "btn-restart"]) {
-          const btn = document.getElementById(btnId);
-          if (btn) btn.hidden = false;
-        }
+        $("btn-quit").hidden = false;
+      }
+      if (h && h.can_restart) {
+        canRestart = true;
+        $("btn-restart").hidden = false;
       }
       if (h && h.platform && h.platform !== serverPlatform) {
         serverPlatform = h.platform;
