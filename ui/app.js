@@ -761,7 +761,7 @@
     // Alert: crash reason or port conflict
     const alert = el("div", "card-alert");
     const alertText = el("span", "card-alert-text");
-    const alertBtn = button("btn small danger", "Kill & start");
+    const alertBtn = button("btn small danger", "Stop");
     const whyBtn = button("btn small why-btn", "Why?");
     whyBtn.title = "Explain the crash and suggest a fix";
     alert.appendChild(alertText);
@@ -1059,7 +1059,7 @@
     alertBtn.addEventListener("click", () => {
       const cur = findApp(id);
       if (!cur || !cur.port_conflict) return;
-      confirmKillConflict(cur, cur.port_conflict);
+      confirmStopConflict(cur, cur.port_conflict);
     });
 
     // Drag anywhere on the card (mouse/pen) or on the grip (touch) to move it.
@@ -1152,6 +1152,7 @@
       const c = app.port_conflict;
       v.alertText.textContent = "Port " + (app.port || app.detected_port || "") + " is used by PID " + c.pid + " (" + (c.command || "unknown") + ")";
       v.alertText.title = v.alertText.textContent;
+      v.alertBtn.title = "Stop that program so the port is free. " + app.name + " stays stopped — start it when you're ready.";
       v.alertBtn.hidden = false;
       v.alert.hidden = false;
     } else if (status === "crashed") {
@@ -1164,7 +1165,7 @@
       v.alert.hidden = true;
     }
 
-    v.whyBtn.hidden = status !== "crashed" && !(app.port_conflict && !isActive(app));
+    v.whyBtn.hidden = status !== "crashed" || Boolean(app.port_conflict);
     v.whyBtn.className = "btn small why-btn";
 
     const git = app.git;
@@ -1271,13 +1272,26 @@
   /* Actions                                                            */
   /* ------------------------------------------------------------------ */
 
-  function confirmKillConflict(app, c) {
+  // The card's Stop on a port conflict: stop only the program in the way;
+  // the app stays stopped until the user starts it.
+  function confirmStopConflict(app, c) {
+    const port = app.port || app.detected_port;
     showConfirm(
-      "Port is in use",
-      "PID " + c.pid + " is listening on this app's port.\n\nCommand: " + (c.command || "unknown") + (c.cwd ? "\nFolder: " + c.cwd : "") +
-        "\n\nKill that process and start " + app.name + "?",
-      "Kill & start",
-      () => runAction(app.id, "start", 1),
+      "Stop the program on port " + port + "?",
+      "PID " + c.pid + " (" + (c.command || "unknown") + ") is using " + app.name + "'s port." +
+        (c.cwd ? " Its folder: " + c.cwd + "." : "") +
+        " Homeport stops it; " + app.name + " stays stopped — start it when you're ready.",
+      "Stop",
+      async () => {
+        try {
+          await request("/api/ports/" + port + "/stop?pid=" + c.pid, { method: "POST" });
+          const cur = findApp(app.id);
+          if (cur) replaceAppState(Object.assign({}, cur, { port_conflict: null }));
+          toast("Port " + port + " is free — start " + app.name + " when you're ready", "ok");
+        } catch (err) {
+          toast("Couldn't stop it: " + err.message, "err");
+        }
+      },
       "danger"
     );
   }
@@ -1325,7 +1339,7 @@
       const d = err.data && err.data.detail;
       if (err.status === 409 && d && d.error === "port_in_use") {
         const cur = findApp(id);
-        confirmKillConflict(cur || { id: id, name: id }, d);
+        confirmStopConflict(cur || { id: id, name: id }, d);
       } else {
         toast("Couldn't " + action + ": " + err.message, "err");
       }
@@ -2692,7 +2706,7 @@
     }
     if (action === "free_port") {
       hideDiag();
-      if (app.port_conflict) confirmKillConflict(app, app.port_conflict);
+      if (app.port_conflict) confirmStopConflict(app, app.port_conflict);
       else runAction(app.id, "start", true);
       return;
     }
@@ -3944,6 +3958,9 @@
         }
       } else if (app.command) {
         add(Object.assign({}, base, { title: "Start " + name, icon: "play", run: () => runAction(id, "start") }));
+      }
+      if (app.port_conflict && !active) {
+        add(Object.assign({}, base, { title: "Stop the program on " + name + "'s port", icon: "stop", keywords: kw + " port conflict kill free busy in use", run: () => confirmStopConflict(app, app.port_conflict) }));
       }
       if (app.status === "crashed" || (app.port_conflict && !active)) {
         add(Object.assign({}, base, { title: "Why did " + name + " stop?", icon: "why", keywords: kw + " crash fix diagnose error", run: () => openDiagnose(app) }));
